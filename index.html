@@ -592,7 +592,7 @@
                 const subClassKeys = Object.keys(parentObj.subClasses || {});
 
                 const buildClassTableHtml = (subKey, classLabel) => {
-                    const stds = parentObj.subClasses[subKey] || [];
+                    const stds = getStudentList(clsName, subKey);
                     let rowsHtml = '';
                     
                     if (stds.length === 0) {
@@ -928,7 +928,7 @@
             `;
 
             subClassNames.forEach(subName => {
-                const students = subClasses[subName] || [];
+                const students = getStudentList(parentClsName, subName);
                 const escapedSub = subName.replace(/'/g, "\\'");
 
                 html += `
@@ -961,7 +961,7 @@
             const fixedSubject = isSubCat ? (parentObj.subjectName || "PAI") : null;
 
             if (isSubCat && subClsName) {
-                students = parentObj.subClasses[subClsName] || [];
+                students = getStudentList(clsName, subClsName);
                 displayTitle = `${subClsName}`;
             } else {
                 students = (parentObj && parentObj.students) ? parentObj.students : [];
@@ -1093,6 +1093,13 @@
             const parent = schoolData[clsName];
             if (!parent) return [];
             if (parent.isSubCategory && subClsName) {
+                // Kelas mapel memakai murid kelas biasa yang sama, bukan daftar murid terpisah.
+                const match = String(subClsName).match(/(?:kelas|class)\s*(\d+)/i) || String(subClsName).match(/(\d+)\s*$/i);
+                if (match) {
+                    const n = match[1];
+                    const regularKey = Object.keys(schoolData).find(k => !schoolData[k]?.isSubCategory && new RegExp('(?:kelas|class)\\s*' + n + '$', 'i').test(k.trim()));
+                    if (regularKey) return schoolData[regularKey].students || [];
+                }
                 return parent.subClasses[subClsName] || [];
             }
             return parent.students || [];
@@ -1205,9 +1212,8 @@
                         <div class="flex items-center justify-between bg-white px-3 py-2 rounded-lg border border-slate-200 text-xs gap-2">
                             <span class="text-slate-600 font-medium">Nilai #${index + 1}: <strong class="text-slate-800 text-sm ml-1">${score}</strong></span>
                             <div class="flex items-center space-x-1">
-                                <button type="button" onclick="openEditIndividualGradeModal('${clsName}', '${subClsName}', '${studentId}', '${sub}', ${index}, ${score})" class="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-600 rounded-lg font-medium transition" title="Edit nilai ini">
-                                    <i class="fa-solid fa-pen mr-1"></i> Edit
-                                </button>
+                                <button type="button" onclick="openEditIndividualGradeModal('${clsName}', '${subClsName}', '${studentId}', '${sub}', ${index}, ${score})" class="px-2.5 py-1 bg-amber-50 text-amber-600 rounded-lg font-medium" title="Edit nilai ini"><i class="fa-solid fa-pen mr-1"></i> Edit</button>
+                                <button type="button" onclick="deleteGrade('${clsName}', '${subClsName}', '${studentId}', '${sub}', ${index})" class="px-2.5 py-1 bg-rose-50 text-rose-600 rounded-lg font-medium">Hapus</button>
                             </div>
                         </div>
                     `).join('');
@@ -1333,7 +1339,7 @@
                             </div>
                             <div>
                                 <h4 class="text-sm font-bold text-slate-800 group-hover:text-indigo-600">Tambah / Edit Siswa</h4>
-                                <p class="text-xs text-slate-500">Tambah siswa baru atau ubah nama siswa</p>
+                                <p class="text-xs text-slate-500">Kelola siswa kelas biasa; kelas mapel mengikuti siswa yang sama</p>
                             </div>
                         </div>
                         <i class="fa-solid fa-chevron-right text-xs text-slate-400"></i>
@@ -1549,6 +1555,21 @@
             render();
         }
 
+        function openFormAddSubjectClass() {
+            const subjects = [...new Set([...(customSubjectsList || []), 'PAI'])];
+            showModal(`
+                <h3 class="text-lg font-bold text-slate-800 mb-1">Tambah Kelas Mapel</h3>
+                <p class="text-slate-500 text-sm mb-4">Siswa mengikuti daftar siswa kelas biasa; tidak perlu menambah siswa khusus untuk kelas mapel.</p>
+                <form onsubmit="handleAddSubjectClassSubmit(event)" class="space-y-4">
+                    <div><label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Nama Kelas Mapel</label>
+                    <input type="text" id="new-sub-class-title" required placeholder="Contoh: Kelas PAI" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm"></div>
+                    <div><label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Mata Pelajaran</label>
+                    <input type="text" id="new-sub-class-subject" list="subject-options" required value="PAI" placeholder="Contoh: PAI" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm">
+                    <datalist id="subject-options">${subjects.map(x => `<option value="${x}">`).join('')}</datalist></div>
+                    <div class="flex justify-end gap-2"><button type="button" onclick="openAddClassOptionsModal()" class="px-4 py-2 bg-slate-100 rounded-xl text-sm">Kembali</button><button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm">Simpan Kelas Mapel</button></div>
+                </form>`);
+        }
+
         function handleAddSubjectClassSubmit(event) {
             event.preventDefault();
             const groupName = document.getElementById('new-sub-class-title').value.trim();
@@ -1582,9 +1603,7 @@
             let classListHtml = classKeys.map(cls => `
                 <div class="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-200 text-sm">
                     <span class="font-semibold text-slate-800">${cls}</span>
-                    <button onclick="openRenameClassModal('${cls.replace(/'/g, "\\'")}')" class="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-600 rounded-lg text-xs font-semibold transition">
-                        <i class="fa-solid fa-pen"></i> Edit
-                    </button>
+                    <div class="flex gap-1"><button onclick="openRenameClassModal('${cls.replace(/'/g, "\\'")}')" class="px-2.5 py-1 bg-amber-50 text-amber-600 rounded-lg text-xs font-semibold"><i class="fa-solid fa-pen"></i> Edit</button><button onclick="deleteClass('${cls.replace(/'/g, "\\'")}')" class="px-2.5 py-1 bg-rose-50 text-rose-600 rounded-lg text-xs font-semibold">Hapus</button></div>
                 </div>
             `).join('');
 
@@ -1644,9 +1663,7 @@
             Object.keys(schoolData).forEach(cls => {
                 const clsObj = schoolData[cls];
                 if (clsObj.isSubCategory) {
-                    Object.keys(clsObj.subClasses || {}).forEach(subCls => {
-                        classOptionsHtml += `<option value="${cls}||${subCls}">${cls} -> ${subCls}</option>`;
-                    });
+                    return; // Murid kelas mapel mengikuti murid kelas biasa.
                 } else {
                     classOptionsHtml += `<option value="${cls}||">${cls}</option>`;
                 }
@@ -1657,41 +1674,19 @@
 
             Object.keys(schoolData).forEach(cls => {
                 const clsObj = schoolData[cls];
-                if (clsObj.isSubCategory) {
-                    Object.keys(clsObj.subClasses || {}).forEach(subCls => {
-                        const stds = clsObj.subClasses[subCls] || [];
-                        stds.forEach(std => {
-                            hasStudents = true;
-                            existingStudentsListHtml += `
-                                <div class="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-sm">
-                                    <div>
-                                        <span class="font-semibold text-slate-800">${std.name}</span>
-                                        <span class="block text-[11px] text-slate-400">${cls} - ${subCls}</span>
-                                    </div>
-                                    <button onclick="openRenameStudentModal('${cls.replace(/'/g, "\\'")}', '${subCls.replace(/'/g, "\\'")}', '${std.id.replace(/'/g, "\\'")}', '${std.name.replace(/'/g, "\\'")}')" class="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-600 rounded-lg text-xs font-semibold transition">
-                                        <i class="fa-solid fa-pen"></i> Edit Nama
-                                    </button>
-                                </div>
-                            `;
-                        });
-                    });
-                } else {
-                    const stds = clsObj.students || [];
-                    stds.forEach(std => {
-                        hasStudents = true;
-                        existingStudentsListHtml += `
-                            <div class="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-sm">
-                                <div>
-                                    <span class="font-semibold text-slate-800">${std.name}</span>
-                                    <span class="block text-[11px] text-slate-400">${cls}</span>
-                                </div>
-                                <button onclick="openRenameStudentModal('${cls.replace(/'/g, "\\'")}', '', '${std.id.replace(/'/g, "\\'")}', '${std.name.replace(/'/g, "\\'")}')" class="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-600 rounded-lg text-xs font-semibold transition">
-                                    <i class="fa-solid fa-pen"></i> Edit Nama
-                                </button>
+                if (clsObj.isSubCategory) return; // Murid dikelola hanya dari kelas biasa.
+                const stds = clsObj.students || [];
+                stds.forEach(std => {
+                    hasStudents = true;
+                    existingStudentsListHtml += `
+                        <div class="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-sm">
+                            <div><span class="font-semibold text-slate-800">${std.name}</span><span class="block text-[11px] text-slate-400">${cls}</span></div>
+                            <div class="flex gap-1">
+                                <button onclick="openRenameStudentModal('${cls.replace(/'/g, "\\'")}', '', '${std.id.replace(/'/g, "\\'")}', '${std.name.replace(/'/g, "\\'")}')" class="px-2.5 py-1 bg-amber-50 text-amber-600 rounded-lg text-xs font-semibold">Edit Nama</button>
+                                <button onclick="deleteStudent('${cls.replace(/'/g, "\\'")}', '', '${std.id.replace(/'/g, "\\'")}')" class="px-2.5 py-1 bg-rose-50 text-rose-600 rounded-lg text-xs font-semibold">Hapus</button>
                             </div>
-                        `;
-                    });
-                }
+                        </div>`;
+                });
             });
 
             if (!hasStudents) {
@@ -1700,7 +1695,7 @@
 
             showModal(`
                 <h3 class="text-lg font-bold text-slate-800 mb-1">Kelola Siswa</h3>
-                <p class="text-slate-500 text-sm mb-4">Tambah siswa baru atau ubah nama siswa terdaftar.</p>
+                <p class="text-slate-500 text-sm mb-4">Kelola siswa kelas biasa. Kelas mapel menggunakan siswa yang sama.</p>
                 
                 <div class="bg-indigo-50/50 p-3.5 rounded-xl border border-indigo-100 mb-5">
                     <h4 class="text-xs font-bold text-indigo-700 uppercase tracking-wide mb-2"><i class="fa-solid fa-user-plus mr-1"></i> Tambah Siswa Baru</h4>
@@ -1781,8 +1776,9 @@
             };
 
             const parentObj = schoolData[clsName];
-            if (parentObj.isSubCategory && subClsName) {
-                parentObj.subClasses[subClsName].push(newStudent);
+            if (parentObj.isSubCategory) {
+                alert('Kelas mapel memakai siswa dari kelas biasa. Tambahkan siswa melalui menu kelas biasa.');
+                return;
             } else {
                 parentObj.students.push(newStudent);
             }
@@ -1792,13 +1788,45 @@
             render();
         }
 
+        function deleteStudent(clsName, subClsName, studentId) {
+            if (!confirm('Hapus siswa ini beserta seluruh nilainya?')) return;
+            const list = getStudentList(clsName, subClsName);
+            const i = list.findIndex(x => x.id === studentId);
+            if (i >= 0) list.splice(i, 1);
+            saveData(); openAddStudentSettingModal(); render();
+        }
+        function deleteClass(clsName) {
+            if (!confirm(`Hapus kelas "${clsName}" beserta data siswanya dan nilainya?`)) return;
+            delete schoolData[clsName];
+            if (selectedClass === clsName) selectedClass = Object.keys(schoolData)[0] || null;
+            saveData(); openManageClassesModal(); render();
+        }
+        function deleteSubject(index) {
+            const name = customSubjectsList[index];
+            if (!confirm(`Hapus mapel "${name}" dari daftar? Nilai lama dengan nama mapel ini juga akan dihapus dari semua siswa.`)) return;
+            customSubjectsList.splice(index, 1);
+            Object.keys(schoolData).forEach(cls => {
+                const obj = schoolData[cls];
+                const lists = obj.isSubCategory ? Object.values(obj.subClasses || {}) : [obj.students || []];
+                lists.forEach(list => list.forEach(st => { if (st.grades) delete st.grades[name]; }));
+            });
+            saveData(); openManageSubjectsModal(); render();
+        }
+        function deleteGrade(clsName, subClsName, studentId, subject, index) {
+            if (!confirm('Hapus nilai ini?')) return;
+            const student = getStudentList(clsName, subClsName).find(x => x.id === studentId);
+            if (student && student.grades && student.grades[subject]) {
+                student.grades[subject].splice(index, 1);
+                if (!student.grades[subject].length) delete student.grades[subject];
+            }
+            saveData(); openDetailStudentModal(clsName, subClsName, studentId); render();
+        }
+
         function openManageSubjectsModal() {
             let subjectsListHtml = customSubjectsList.map((sub, idx) => `
                 <div class="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-sm">
                     <span class="font-medium text-slate-800">${sub}</span>
-                    <button onclick="openEditSubjectNameModal(${idx})" class="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-600 rounded-lg text-xs font-semibold transition">
-                        <i class="fa-solid fa-pen"></i> Edit
-                    </button>
+                    <div class="flex gap-1"><button onclick="openEditSubjectNameModal(${idx})" class="px-2.5 py-1 bg-amber-50 text-amber-600 rounded-lg text-xs font-semibold"><i class="fa-solid fa-pen"></i> Edit</button><button onclick="deleteSubject(${idx})" class="px-2.5 py-1 bg-rose-50 text-rose-600 rounded-lg text-xs font-semibold">Hapus</button></div>
                 </div>
             `).join('');
 
