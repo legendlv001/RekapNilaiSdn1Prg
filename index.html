@@ -791,8 +791,9 @@
             } else if (currentView === 'detail') {
                 const isSubCat = schoolData[selectedClass] && schoolData[selectedClass].isSubCategory;
                 const backTarget = isSubCat ? 'pai_subclasses' : 'classes';
+                const backParent = isSubCat ? String(selectedClass || '').replace(/'/g, "\\'") : '';
                 navContainer.innerHTML = `
-                    <button onclick="switchView('${backTarget}')" class="bg-indigo-700 hover:bg-indigo-800 text-white px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition shadow flex items-center gap-1.5">
+                    <button onclick="switchView('${backTarget}'${isSubCat ? ", '" + backParent + "'" : ''})" class="bg-indigo-700 hover:bg-indigo-800 text-white px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition shadow flex items-center gap-1.5">
                         <i class="fa-solid fa-arrow-left"></i> Kembali
                     </button>
                 `;
@@ -875,7 +876,7 @@
                         <div onclick="handleClassClick('${escapedCls}')" class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 hover:border-emerald-500 hover:shadow-md transition cursor-pointer flex items-center justify-between group">
                             <div class="flex items-center space-x-3.5">
                                 <div class="w-12 h-12 bg-emerald-50 group-hover:bg-emerald-600 text-emerald-600 group-hover:text-white rounded-2xl flex items-center justify-center font-bold text-lg transition-colors">
-                                    <i class="fa-solid fa-book-quran"></i>
+                                    <i class="fa-solid ${getClassMapelIcon(clsObj.subjectName || cls)}"></i>
                                 </div>
                                 <div>
                                     <h3 class="text-base font-bold text-slate-800 group-hover:text-emerald-600 transition-colors">${cls}</h3>
@@ -908,6 +909,18 @@
             }
         }
 
+        function getClassMapelIcon(name) {
+            const label = String(name || '').toLowerCase();
+            if (label.includes('pai') || label.includes('quran') || label.includes('agama')) return 'fa-book-quran';
+            if (label.includes('matematika') || label.includes('math')) return 'fa-calculator';
+            if (label.includes('ipa') || label.includes('sains')) return 'fa-flask';
+            if (label.includes('pjok') || label.includes('olahraga')) return 'fa-futbol';
+            if (label.includes('seni')) return 'fa-palette';
+            if (label.includes('bahasa') || label.includes('literasi')) return 'fa-book-open';
+            if (label.includes('komputer') || label.includes('tik')) return 'fa-computer';
+            return 'fa-book';
+        }
+
         function renderSubClassesView(parentClsName) {
             const parentObj = schoolData[parentClsName];
             if (!parentObj || !parentObj.subClasses) return '';
@@ -935,7 +948,7 @@
                     <div onclick="switchView('detail', '${escapedParent}', '${escapedSub}')" class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80 hover:border-indigo-500 hover:shadow-md transition cursor-pointer flex items-center justify-between group">
                         <div class="flex items-center space-x-4">
                             <div class="w-12 h-12 bg-emerald-50 group-hover:bg-emerald-600 text-emerald-600 group-hover:text-white rounded-xl flex items-center justify-center font-bold text-lg transition-colors">
-                                <i class="fa-solid fa-layer-group"></i>
+                                <i class="fa-solid ${getClassMapelIcon(parentObj.subjectName || subName)}"></i>
                             </div>
                             <div>
                                 <h3 class="text-base font-bold text-slate-800 group-hover:text-emerald-600 transition-colors">${subName}</h3>
