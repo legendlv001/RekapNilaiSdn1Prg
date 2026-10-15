@@ -1039,6 +1039,11 @@
             </div>`;
         }
 
+        // Mapel khusus (PAI) hanya dikelola dari kelompok kelas mapel, bukan kelas utama.
+        function isSeparateMapelSubject(subject) {
+            return /\\bpai\\b/i.test(String(subject || '').trim());
+        }
+
         function renderClassDetailView(clsName, subClsName = null) {
             let students = [];
             let displayTitle = clsName;
@@ -1056,10 +1061,10 @@
             let allSubjects = new Set();
             if (!isSubCat) {
                 students.forEach(s => {
-                    Object.keys(s.grades || {}).forEach(sub => allSubjects.add(sub));
-                    Object.values(s.gradesByTw || {}).forEach(map => Object.keys(map || {}).forEach(sub => allSubjects.add(sub)));
+                    Object.keys(s.grades || {}).forEach(sub => { if (!isSeparateMapelSubject(sub)) allSubjects.add(sub); });
+                    Object.values(s.gradesByTw || {}).forEach(map => Object.keys(map || {}).forEach(sub => { if (!isSeparateMapelSubject(sub)) allSubjects.add(sub); }));
                 });
-                customSubjectsList.forEach(sub => allSubjects.add(sub));
+                customSubjectsList.forEach(sub => { if (!isSeparateMapelSubject(sub)) allSubjects.add(sub); });
             } else {
                 allSubjects.add(fixedSubject);
             }
@@ -1213,8 +1218,10 @@
                     </div>
                 `;
             } else {
-                let allSubjects = new Set([...customSubjectsList]);
-                students.forEach(s => Object.keys(s.grades || {}).forEach(sub => allSubjects.add(sub)));
+                let allSubjects = new Set([...customSubjectsList].filter(sub => !isSeparateMapelSubject(sub)));
+                students.forEach(s => Object.keys(s.grades || {}).forEach(sub => {
+                    if (!isSeparateMapelSubject(sub)) allSubjects.add(sub);
+                }));
                 const availableSubjects = Array.from(allSubjects);
 
                 let subjectButtonsHtml = availableSubjects.map(sub => `
@@ -1269,6 +1276,18 @@
             const val = parseFloat(document.getElementById('grade-value').value);
 
             if (!subject || isNaN(val)) return;
+            const parentForGrade = schoolData[clsName];
+            if (parentForGrade && parentForGrade.isSubCategory) {
+                // Kelas mapel selalu menyimpan nilai pada mapel yang ditetapkan untuk kelompok tersebut.
+                const fixedSubject = parentForGrade.subjectName || 'PAI';
+                if (subject !== fixedSubject) {
+                    alert('Kelas mapel ini hanya menerima nilai ' + fixedSubject + '.');
+                    return;
+                }
+            } else if (isSeparateMapelSubject(subject)) {
+                alert('Nilai PAI harus diinput melalui menu Kelas PAI, bukan kelas utama.');
+                return;
+            }
 
             const students = getStudentList(clsName, subClsName);
             const student = students.find(s => s.id === studentId);
@@ -1287,7 +1306,12 @@
 
             ensureStudentTwData(student);
             let subjectsHtml = '';
-            const subjects = Object.keys(student.grades || {});
+            const isMapelView = !!(schoolData[clsName] && schoolData[clsName].isSubCategory);
+            const subjects = Object.keys(student.grades || {}).filter(sub =>
+                isMapelView
+                    ? sub === (schoolData[clsName].subjectName || 'PAI')
+                    : !isSeparateMapelSubject(sub)
+            );
 
             if (subjects.length === 0) {
                 subjectsHtml = `<p class="text-sm text-slate-400 italic">Belum ada nilai mata pelajaran.</p>`;
