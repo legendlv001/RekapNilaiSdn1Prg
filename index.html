@@ -1,0 +1,1923 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rekap Nilai Per Kelas</title>
+    <!-- Tailwind CSS for modern styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- html2pdf for downloading formatted PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+
+    <div id="loading-overlay" class="fixed inset-0 bg-white z-[9999] flex flex-col items-center justify-center p-4 transition-opacity duration-300">
+        <div class="text-center space-y-4 max-w-sm">
+            <div id="loading-spinner-box">
+                <img src="https://media.tenor.com/pgO8hZgOW5AAAAAC/loading-bar.gif" alt="Memuat Data..." class="h-20 sm:h-24 mx-auto object-contain">
+            </div>
+            <div>
+                <h3 id="loading-title" class="text-lg font-bold text-slate-800">Memuat Data dari Spreadsheet...</h3>
+                <p id="loading-desc" class="text-xs text-slate-500 mt-1">Mengambil rekap nilai dan pengaturan terbaru SDN 1 Parigi</p>
+            </div>
+            <div id="loading-error-action" class="hidden pt-2">
+                <button onclick="fetchSpreadsheetData(true)" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold transition shadow flex items-center justify-center gap-2 mx-auto">
+                    <i class="fa-solid fa-rotate-right"></i> Muat Ulang Aplikasi
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <header class="bg-indigo-600 text-white shadow-md">
+        <div class="max-w-4xl mx-auto px-4 py-5 flex items-center justify-between gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="bg-white/10 p-2.5 rounded-2xl">
+                    <i class="fa-solid fa-graduation-cap text-2xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl sm:text-2xl font-bold leading-tight">Rekap Nilai Per Kelas</h1>
+                    <p class="text-indigo-200 text-xs sm:text-sm">Kelola siswa, mata pelajaran, dan rata-rata nilai per kelas</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center space-x-2">
+                <div id="nav-back-container"></div>
+                <!-- Print Button Top-Right -->
+                <button onclick="openPrintOptionsModal()" title="Cetak / Download Rekap PDF" class="bg-emerald-500 hover:bg-emerald-600 text-white px-3.5 py-2 rounded-xl text-sm font-medium transition shadow flex items-center gap-2 border border-emerald-400/30">
+                    <i class="fa-solid fa-print"></i>
+                    <span class="hidden sm:inline">Cetak</span>
+                </button>
+                <!-- Pengaturan Button Top-Right -->
+                <button onclick="openSettingsModal()" class="bg-indigo-500 hover:bg-indigo-700 text-white px-3.5 py-2 rounded-xl text-sm font-medium transition shadow flex items-center gap-2 border border-indigo-400/30">
+                    <i class="fa-solid fa-gear"></i>
+                    <span class="hidden sm:inline">Pengaturan</span>
+                </button>
+            </div>
+        </div>
+        <!-- Academic Info Sub-header Banner -->
+        <div class="bg-indigo-700/60 border-t border-indigo-500/40 text-indigo-100 text-xs py-2 px-4 text-center">
+            <span id="header-academic-info" class="font-medium tracking-wide">
+                <i class="fa-solid fa-calendar-days mr-1.5 opacity-80"></i><span id="academic-term-display">Tahun Ajaran 2026/2027 - Triwulan I</span>
+            </span>
+        </div>
+    </header>
+
+    <main class="flex-grow max-w-4xl w-full mx-auto px-4 py-8">
+        <div id="app-container">
+            <!-- Dynamic Content rendered via JS -->
+        </div>
+    </main>
+
+    <footer class="bg-white border-t border-slate-200 py-3 text-center text-sm text-slate-500 overflow-hidden">
+        <div class="text-xs text-indigo-600 font-medium bg-slate-50 py-1 border-y border-slate-100">
+            <marquee behavior="scroll" direction="left" scrollamount="5" class="max-w-full inline-block">
+                <span id="marquee-academic-text">©2026 Rekap Nilai PerTriWulan SDN 1 Parigi Triwulan I Tahun Ajaran 2026/2027</span>
+            </marquee>
+        </div>
+    </footer>
+
+    <!-- Custom Modal Popup -->
+    <div id="custom-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div id="modal-content" class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl transform transition-all max-h-[90vh] overflow-y-auto">
+            <!-- Modal body dynamically loaded -->
+        </div>
+    </div>
+
+    <!-- Hidden Printable Container for PDF Export -->
+    <div class="hidden">
+        <div id="pdf-print-area" class="p-8 bg-white text-slate-900 font-sans" style="width: 1100px; min-height: 750px; font-family: Arial, sans-serif;">
+            <!-- Rendered dynamically during PDF print -->
+        </div>
+    </div>
+
+    <script>
+        const defaultData = {
+            "Kelas 2": {
+                isSubCategory: false,
+                students: []
+            },
+            "Kelas 4": {
+                isSubCategory: false,
+                students: []
+            },
+            "Kelas 5": {
+                isSubCategory: false,
+                students: []
+            },
+            "Kelas 6": {
+                isSubCategory: false,
+                students: []
+            },
+            "Kelas PAI": {
+                isSubCategory: true,
+                subjectName: "PAI",
+                subClasses: {
+                    "PAI Kelas 1": [],
+                    "PAI Kelas 2": [],
+                    "PAI Kelas 3": [],
+                    "PAI Kelas 4": [],
+                    "PAI Kelas 5": [],
+                    "PAI Kelas 6": []
+                }
+            }
+        };
+
+        const defaultSubjects = ["Matematika", "IPA", "Bahasa Indonesia", "Bahasa Inggris", "PKn", "PJOK", "Seni Budaya"];
+
+        const defaultAdminSettings = {
+            academicYear: "2026/2027",
+            triwulan: "Triwulan I",
+            headmasterName: "",
+            headmasterNip: "",
+            teachers: {
+                "Kelas 2": { name: "", nip: "" },
+                "Kelas 4": { name: "", nip: "" },
+                "Kelas 5": { name: "", nip: "" },
+                "Kelas 6": { name: "", nip: "" },
+                "Kelas PAI": { name: "", nip: "" }
+            },
+            spreadsheetUrl: "https://docs.google.com/spreadsheets/d/1dHd8-ixTrO8kjj_ThpKcE5BZX5c5SnVRS2m6PSzpwMg/edit?usp=drivesdk"
+        };
+
+        let schoolData = loadAndMigrateData();
+        let customSubjectsList = JSON.parse(localStorage.getItem('school_grade_subjects_v4')) || defaultSubjects;
+        let adminSettings = JSON.parse(localStorage.getItem('school_grade_admin_v4')) || defaultAdminSettings;
+
+        if (!adminSettings.teachers) adminSettings.teachers = {};
+        if (!adminSettings.spreadsheetUrl) adminSettings.spreadsheetUrl = defaultAdminSettings.spreadsheetUrl;
+
+        let currentView = 'classes'; 
+        let selectedClass = null;
+        let selectedSubClass = null;
+
+        function loadAndMigrateData() {
+            const raw = localStorage.getItem('school_grade_recap_v4');
+            if (!raw) return defaultData;
+
+            try {
+                const parsed = JSON.parse(raw);
+                Object.keys(parsed).forEach(k => {
+                    if (Array.isArray(parsed[k])) {
+                        parsed[k] = { isSubCategory: false, students: parsed[k] };
+                    }
+                });
+                return parsed;
+            } catch(e) {
+                return defaultData;
+            }
+        }
+
+        function saveData() {
+            localStorage.setItem('school_grade_recap_v4', JSON.stringify(schoolData));
+            localStorage.setItem('school_grade_subjects_v4', JSON.stringify(customSubjectsList));
+            localStorage.setItem('school_grade_admin_v4', JSON.stringify(adminSettings));
+        }
+
+        // Helper to convert Google Sheets sharing URL to CSV export URL for specific sheet names/gids if needed,
+        // or parse multi-sheet JSON/CSV exports. Since standard web fetch CSV gets the first sheet,
+        // we can fetch published CSV or handle simulated/actual Google Sheets API parsing for multi-tabs:
+        // Admin, Guru, Siswa, Kelas sheets.
+        function getCsvExportUrl(url, gid = 0) {
+            if (!url) return "";
+            try {
+                let match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
+                if (match && match[1]) {
+                    const docId = match[1];
+                    return `https://docs.google.com/spreadsheets/d/${docId}/export?format=csv&gid=${gid}`;
+                }
+            } catch(e) {}
+            return url;
+        }
+
+        // Simple CSV row parser handling quotes and commas
+        function parseCSV(text) {
+            const lines = text.split(/\r\n|\n/);
+            const result = [];
+            for (let i = 0; i < lines.length; i++) {
+                if (!lines[i].trim()) continue;
+                let row = [];
+                let inQuotes = false;
+                let currentVal = '';
+                for (let j = 0; j < lines[i].length; j++) {
+                    let char = lines[i][j];
+                    if (char === '"') {
+                        inQuotes = !inQuotes;
+                    } else if (char === ',' && !inQuotes) {
+                        row.push(currentVal.trim());
+                        currentVal = '';
+                    } else {
+                        currentVal += char;
+                    }
+                }
+                row.push(currentVal.trim());
+                result.push(row);
+            }
+            return result;
+        }
+
+        async function fetchSpreadsheetData(showLoader = true) {
+            const loader = document.getElementById('loading-overlay');
+            const spinnerBox = document.getElementById('loading-spinner-box');
+            const loadingTitle = document.getElementById('loading-title');
+            const loadingDesc = document.getElementById('loading-desc');
+            const errorAction = document.getElementById('loading-error-action');
+
+            if (showLoader && loader) {
+                loader.classList.remove('hidden');
+                loader.style.opacity = '1';
+                if (spinnerBox) spinnerBox.classList.remove('hidden');
+                if (loadingTitle) loadingTitle.textContent = "Memuat Data dari Spreadsheet...";
+                if (loadingDesc) loadingDesc.textContent = "Membaca Sheet Admin, Guru, Siswa, dan Kelas...";
+                if (errorAction) errorAction.classList.add('hidden');
+            }
+
+            const targetUrl = adminSettings.spreadsheetUrl || defaultAdminSettings.spreadsheetUrl;
+
+            try {
+                // 1. Fetch Admin Sheet (gid=0 or default)
+                // Sheet Admin format: B1 = url script, B2 = Tw, B3 = tahun ajar, B4 = Mapel (separated by ;)
+                const adminCsvUrl = getCsvExportUrl(targetUrl, 0);
+                const adminRes = await fetch(adminCsvUrl);
+                if (adminRes.ok) {
+                    const adminText = await adminRes.text();
+                    const adminRows = parseCSV(adminText);
+                    // Row 0 or Row indices for B1 (row 0 col 1), B2 (row 1 col 1), B3 (row 2 col 1), B4 (row 3 col 1)
+                    if (adminRows.length > 0) {
+                        if (adminRows[1] && adminRows[1][1]) adminSettings.spreadsheetUrl = adminRows[1][1];
+                        if (adminRows[1] && adminRows[1][1]) adminSettings.scriptUrl = adminRows[1][1];
+                        if (adminRows[1] && adminRows[1][2]) adminSettings.triwulan = adminRows[1][2]; // or row index 1 col 1 depending on layout
+                    }
+                    // More robust parsing for B1, B2, B3, B4:
+                    // Let's inspect column 1 (B) across rows
+                    adminRows.forEach((row, idx) => {
+                        const cellB = row[1] || row[0] || "";
+                        if (idx === 1 && cellB) adminSettings.triwulan = cellB; // B2
+                        if (idx === 2 && cellB) adminSettings.academicYear = cellB; // B3
+                        if (idx === 3 && cellB) {
+                            // B4: Mapel dipisah oleh ;
+                            const mapels = cellB.split(';').map(m => m.trim()).filter(Boolean);
+                            if (mapels.length > 0) {
+                                customSubjectsList = mapels;
+                            }
+                        }
+                    });
+                }
+
+                // 2. Fetch Guru Sheet (gid=1 or parse)
+                // Kolom A jabatan, Kolom B nama, Kolom C nip
+                const guruCsvUrl = getCsvExportUrl(targetUrl, 1);
+                const guruRes = await fetch(guruCsvUrl);
+                if (guruRes.ok) {
+                    const guruText = await guruRes.text();
+                    const guruRows = parseCSV(guruText);
+                    guruRows.forEach((row, idx) => {
+                        if (idx === 0) return; // header
+                        const jabatan = row[0] || "";
+                        const nama = row[1] || "";
+                        const nip = row[2] || "";
+                        if (jabatan.toLowerCase().includes("kepala sekolah")) {
+                            adminSettings.headmasterName = nama;
+                            adminSettings.headmasterNip = nip;
+                        } else if (jabatan) {
+                            // Match jabatan to class name e.g. "Kelas 2" or "Guru Kelas 2"
+                            Object.keys(schoolData).forEach(cls => {
+                                if (jabatan.toLowerCase().includes(cls.toLowerCase())) {
+                                    if (!adminSettings.teachers[cls]) adminSettings.teachers[cls] = { name: "", nip: "" };
+                                    adminSettings.teachers[cls].name = nama;
+                                    adminSettings.teachers[cls].nip = nip;
+                                }
+                            });
+                        }
+                    });
+                }
+
+                // 3. Fetch Siswa Sheet (gid=2)
+                // Kolom A No urut siswa perkelas, Kolom B Nama Siswa, Kolom C Kelas siswa
+                const siswaCsvUrl = getCsvExportUrl(targetUrl, 2);
+                const siswaRes = await fetch(siswaCsvUrl);
+                if (siswaRes.ok) {
+                    const siswaText = await siswaRes.text();
+                    const siswaRows = parseCSV(siswaText);
+                    
+                    siswaRows.forEach((row, idx) => {
+                        if (idx === 0) return; // header
+                        const noUrut = row[0];
+                        const namaSiswa = row[1];
+                        const kelasSiswa = row[2];
+
+                        if (namaSiswa && kelasSiswa) {
+                            // Ensure class exists or create new sheet/class if it doesn't exist
+                            if (!schoolData[kelasSiswa]) {
+                                // If class starts with PAI or mapel or regular
+                                if (kelasSiswa.toLowerCase().includes("pai") || kelasSiswa.toLowerCase().includes("mapel")) {
+                                    schoolData[kelasSiswa] = {
+                                        isSubCategory: true,
+                                        subjectName: "PAI",
+                                        subClasses: {
+                                            "PAI Kelas 1": [], "PAI Kelas 2": [], "PAI Kelas 3": [],
+                                            "PAI Kelas 4": [], "PAI Kelas 5": [], "PAI Kelas 6": []
+                                        }
+                                    };
+                                } else {
+                                    schoolData[kelasSiswa] = {
+                                        isSubCategory: false,
+                                        students: []
+                                    };
+                                }
+                            }
+
+                            const clsObj = schoolData[kelasSiswa];
+                            const studentObj = {
+                                id: 's_' + Math.random().toString(36).substring(2, 9),
+                                name: namaSiswa,
+                                grades: {}
+                            };
+
+                            if (clsObj.isSubCategory) {
+                                // Put into default subClass or match sub-class
+                                const subKey = Object.keys(clsObj.subClasses)[0];
+                                if (!clsObj.subClasses[subKey].some(s => s.name === namaSiswa)) {
+                                    clsObj.subClasses[subKey].push(studentObj);
+                                }
+                            } else {
+                                if (!clsObj.students.some(s => s.name === namaSiswa)) {
+                                    clsObj.students.push(studentObj);
+                                }
+                            }
+                        }
+                    });
+                }
+
+                // 4. Fetch Kelas Sheets (Kelas 2 s/d Kelas PAI etc.)
+                // Kolom A no urut siswa perkelas, Kolom B nama siswa, Kolom C kelas siswa, Kolom D nilai siswa, Kolom E mapel siswa
+                // We can iterate over existing classes and fetch their tab if available (gid=3,4,...) or parse
+                for (const clsName of Object.keys(schoolData)) {
+                    // We can also check if custom sheet tabs exist or parse from data tabs
+                }
+
+                saveData();
+                setTimeout(() => {
+                    if (loader) {
+                        loader.style.opacity = '0';
+                        setTimeout(() => loader.classList.add('hidden'), 300);
+                    }
+                    render();
+                }, 600);
+
+            } catch (err) {
+                console.warn("Spreadsheet sync fallback to local storage:", err);
+                setTimeout(() => {
+                    if (loader) {
+                        loader.style.opacity = '0';
+                        setTimeout(() => loader.classList.add('hidden'), 300);
+                    }
+                    render();
+                }, 600);
+            }
+        }
+
+        function triggerManualSpreadsheetReload() {
+            fetchSpreadsheetData(true);
+        }
+
+        function saveData(syncToBackend = true) {
+            localStorage.setItem('school_grade_recap_v4', JSON.stringify(schoolData));
+            localStorage.setItem('school_grade_subjects_v4', JSON.stringify(customSubjectsList));
+            localStorage.setItem('school_grade_admin_v4', JSON.stringify(adminSettings));
+        }
+
+        // Helper to convert Google Sheets sharing URL to CSV export URL
+        function getCsvExportUrl(url) {
+            if (!url) return "";
+            try {
+                // If it contains /edit, replace or append /export?format=csv
+                let match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
+                if (match && match[1]) {
+                    const docId = match[1];
+                    return `https://docs.google.com/spreadsheets/d/${docId}/export?format=csv`;
+                }
+            } catch(e) {}
+            return url;
+        }
+
+        async function fetchSpreadsheetData(showLoader = true) {
+            const loader = document.getElementById('loading-overlay');
+            const spinnerBox = document.getElementById('loading-spinner-box');
+            const loadingTitle = document.getElementById('loading-title');
+            const loadingDesc = document.getElementById('loading-desc');
+            const errorAction = document.getElementById('loading-error-action');
+
+            if (showLoader && loader) {
+                loader.classList.remove('hidden');
+                loader.style.opacity = '1';
+                if (spinnerBox) spinnerBox.classList.remove('hidden');
+                if (loadingTitle) loadingTitle.textContent = "Memuat Data dari Spreadsheet...";
+                if (loadingDesc) loadingDesc.textContent = "Mengambil rekap nilai dan pengaturan terbaru SDN 1 Parigi";
+                if (errorAction) errorAction.classList.add('hidden');
+            }
+
+            const targetUrl = adminSettings.spreadsheetUrl || defaultAdminSettings.spreadsheetUrl;
+            const csvUrl = getCsvExportUrl(targetUrl);
+
+            try {
+                // Attempt fetching CSV from Google Sheets
+                const response = await fetch(csvUrl);
+                if (!response.ok) throw new Error("Gagal terhubung ke Google Spreadsheet");
+                const csvText = await response.text();
+                
+                // Parse CSV simple parser if desired, or fallback to mock integration sync
+                // For demonstration, if CSV fetch succeeds or parses rows, we can process it or merge.
+                // If CSV contains data rows, we can map them. If it fails due to CORS or structure, we handle gracefully.
+                
+                // Simulate successful fetch & parsing / merging
+                setTimeout(() => {
+                    if (loader) {
+                        loader.style.opacity = '0';
+                        setTimeout(() => loader.classList.add('hidden'), 300);
+                    }
+                    render();
+                }, 600);
+
+            } catch (err) {
+                console.warn("Spreadsheet fetch error or CORS notice:", err);
+                // Fallback: If fetch fails (CORS or offline), we still load local saved data successfully
+                setTimeout(() => {
+                    if (loader) {
+                        loader.style.opacity = '0';
+                        setTimeout(() => loader.classList.add('hidden'), 300);
+                    }
+                    render();
+                }, 600);
+            }
+        }
+
+        function triggerManualSpreadsheetReload() {
+            const loader = document.getElementById('loading-overlay');
+            const spinnerBox = document.getElementById('loading-spinner-box');
+            const loadingTitle = document.getElementById('loading-title');
+            const loadingDesc = document.getElementById('loading-desc');
+            const errorAction = document.getElementById('loading-error-action');
+
+            if (loader) {
+                loader.classList.remove('hidden');
+                loader.style.opacity = '1';
+                if (spinnerBox) spinnerBox.classList.remove('hidden');
+                if (loadingTitle) loadingTitle.textContent = "Memuat Ulang Spreadsheet...";
+                if (loadingDesc) loadingDesc.textContent = "Menyinkronkan data terbaru dari Google Sheets...";
+                if (errorAction) errorAction.classList.add('hidden');
+            }
+
+            closeModal();
+
+            setTimeout(() => {
+                if (loader) {
+                    loader.style.opacity = '0';
+                    setTimeout(() => loader.classList.add('hidden'), 300);
+                }
+                render();
+            }, 1000);
+        }
+
+        function updateAcademicHeaderDisplay() {
+            const el = document.getElementById('academic-term-display');
+            if (el) {
+                el.textContent = `Tahun Ajaran ${adminSettings.academicYear || '2026/2027'} - ${adminSettings.triwulan || 'Triwulan I'}`;
+            }
+
+            const marqueeEl = document.getElementById('marquee-academic-text');
+            if (marqueeEl) {
+                marqueeEl.textContent = `©2026 Rekap Nilai PerTriWulan SDN 1 Parigi ${adminSettings.triwulan || 'Triwulan I'} Tahun Ajaran ${adminSettings.academicYear || '2026/2027'}`;
+            }
+        }
+
+        function openPrintOptionsModal() {
+            let classOptionsHtml = '';
+            Object.keys(schoolData).forEach(cls => {
+                const clsObj = schoolData[cls];
+                if (clsObj.isSubCategory) {
+                    classOptionsHtml += `<option value="${cls}||ALL_SUBCLASSES">${cls} (Semua Kelas I - VI)</option>`;
+                } else {
+                    classOptionsHtml += `<option value="${cls}||">${cls}</option>`;
+                }
+            });
+
+            showModal(`
+                <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+                    <div class="flex items-center space-x-2">
+                        <i class="fa-solid fa-print text-emerald-600 text-lg"></i>
+                        <h3 class="text-lg font-bold text-slate-800">Cetak Rekap Nilai PDF</h3>
+                    </div>
+                    <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 p-1">
+                        <i class="fa-solid fa-xmark text-lg"></i>
+                    </button>
+                </div>
+
+                <form onsubmit="handleGeneratePDFSubmit(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Pilih Kelas / Mapel</label>
+                        <select id="print-class-select" required class="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 text-sm bg-white">
+                            ${classOptionsHtml}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Triwulan (TW)</label>
+                        <select id="print-triwulan" required class="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 text-sm bg-white">
+                            <option value="Triwulan I" ${adminSettings.triwulan === 'Triwulan I' ? 'selected' : ''}>Triwulan I</option>
+                            <option value="Triwulan II" ${adminSettings.triwulan === 'Triwulan II' ? 'selected' : ''}>Triwulan II</option>
+                            <option value="Triwulan III" ${adminSettings.triwulan === 'Triwulan III' ? 'selected' : ''}>Triwulan III</option>
+                            <option value="Triwulan IV" ${adminSettings.triwulan === 'Triwulan IV' ? 'selected' : ''}>Triwulan IV</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Tahun Ajaran</label>
+                        <input type="text" id="print-academic-year" required value="${adminSettings.academicYear || '2026/2027'}" placeholder="Contoh: 2026/2027" class="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 text-sm">
+                    </div>
+
+                    <div class="bg-indigo-50/60 p-3 rounded-xl border border-indigo-100 text-xs text-indigo-700 flex items-center gap-2">
+                        <i class="fa-solid fa-circle-info text-indigo-500 text-sm flex-shrink-0"></i>
+                        <span>Nama/NIP Kepala Sekolah dan Guru disesuaikan otomatis dari Pengaturan Admin.</span>
+                    </div>
+
+                    <div class="flex justify-end space-x-2 pt-3 border-t border-slate-100">
+                        <button type="button" onclick="closeModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-medium transition">Batal</button>
+                        <button type="submit" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-medium transition flex items-center gap-2">
+                            <i class="fa-solid fa-file-pdf"></i> Download PDF
+                        </button>
+                    </div>
+                </form>
+            `);
+        }
+
+        function handleGeneratePDFSubmit(event) {
+            event.preventDefault();
+            const target = document.getElementById('print-class-select').value;
+            const tw = document.getElementById('print-triwulan').value;
+            const year = document.getElementById('print-academic-year').value.trim();
+
+            if (!target || !year) return;
+
+            const [clsName, subClsName] = target.split('||');
+            const parentObj = schoolData[clsName];
+            const isSubCat = parentObj && parentObj.isSubCategory;
+            const todayDate = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+            const printArea = document.getElementById('pdf-print-area');
+
+            const headmasterName = adminSettings.headmasterName || "-";
+            const headmasterNip = adminSettings.headmasterNip ? `NIP. ${adminSettings.headmasterNip}` : "";
+
+            const teacherObj = (adminSettings.teachers && adminSettings.teachers[clsName]) || { name: "-", nip: "" };
+            const teacherName = teacherObj.name || "-";
+            const teacherNip = teacherObj.nip ? `NIP. ${teacherObj.nip}` : "";
+
+            let teacherRoleTitle = "Guru Kelas";
+            if (isSubCat) {
+                teacherRoleTitle = `Guru Mapel ${parentObj.subjectName || "PAI"}`;
+            } else {
+                teacherRoleTitle = `Guru ${clsName}`;
+            }
+
+            if (isSubCat) {
+                const subjectTitle = parentObj.subjectName || "PAI";
+                const subClassKeys = Object.keys(parentObj.subClasses || {});
+
+                const buildClassTableHtml = (subKey, classLabel) => {
+                    const stds = parentObj.subClasses[subKey] || [];
+                    let rowsHtml = '';
+                    
+                    if (stds.length === 0) {
+                        rowsHtml = `<tr><td colspan="3" style="border: 1px solid #000; padding: 4px; text-align: center; color: #777; font-style: italic; font-size: 10px;">- Belum Ada Siswa -</td></tr>`;
+                    } else {
+                        stds.forEach((s, idx) => {
+                            const gradesArr = s.grades[subjectTitle] || [];
+                            const avg = getAverage(gradesArr);
+                            const hasGrades = gradesArr.length > 0;
+                            rowsHtml += `
+                                <tr>
+                                    <td style="border: 1px solid #000; padding: 3px 4px; text-align: center; width: 25px; font-size: 10px;">${idx + 1}</td>
+                                    <td style="border: 1px solid #000; padding: 3px 6px; font-size: 10px; font-weight: 500;">${s.name}</td>
+                                    <td style="border: 1px solid #000; padding: 3px 4px; text-align: center; font-weight: bold; width: 65px; font-size: 10px;">${hasGrades ? avg : ''}</td>
+                                </tr>
+                            `;
+                        });
+                    }
+
+                    return `
+                        <div style="flex: 1; min-width: 0;">
+                            <table style="width: 100%; border-collapse: collapse; font-family: Arial, sans-serif;">
+                                <thead>
+                                    <tr style="background-color: #f1f5f9;">
+                                        <th style="border: 1px solid #000; padding: 4px; text-align: center; font-size: 10px; font-weight: bold; width: 25px;">NO</th>
+                                        <th style="border: 1px solid #000; padding: 4px; text-align: center; font-size: 10px; font-weight: bold;">NAMA</th>
+                                        <th style="border: 1px solid #000; padding: 4px; text-align: center; font-size: 10px; font-weight: bold; width: 65px;">${classLabel}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${rowsHtml}
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                };
+
+                const classRomanLabels = ["KELAS I", "KELAS II", "KELAS III", "KELAS IV", "KELAS V", "KELAS VI"];
+                let row1TablesHtml = '';
+                let row2TablesHtml = '';
+
+                for (let i = 0; i < 3; i++) {
+                    const key = subClassKeys[i] || `PAI Kelas ${i+1}`;
+                    row1TablesHtml += buildClassTableHtml(key, classRomanLabels[i]);
+                }
+
+                for (let i = 3; i < 6; i++) {
+                    const key = subClassKeys[i] || `PAI Kelas ${i+1}`;
+                    row2TablesHtml += buildClassTableHtml(key, classRomanLabels[i]);
+                }
+
+                printArea.innerHTML = `
+                    <div style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 14px;">
+                        <h2 style="font-size: 16px; font-weight: bold; margin: 0; text-transform: uppercase;">SD NEGERI 1 PARIGI</h2>
+                        <h1 style="font-size: 14px; font-weight: bold; margin: 3px 0 0 0; text-transform: uppercase;">REKAPITULASI NILAI MATA PELAJARAN ${subjectTitle.toUpperCase()} (KELAS I - VI)</h1>
+                        <p style="font-size: 11px; margin: 3px 0 0 0; font-weight: 500;"><strong>${tw}</strong> Tahun Ajaran <strong>${year}</strong></p>
+                    </div>
+
+                    <div style="display: flex; gap: 12px; margin-bottom: 12px; align-items: flex-start;">
+                        ${row1TablesHtml}
+                    </div>
+
+                    <div style="display: flex; gap: 12px; margin-bottom: 20px; align-items: flex-start;">
+                        ${row2TablesHtml}
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between; font-size: 11px; margin-top: 25px; page-break-inside: avoid;">
+                        <div style="text-align: center; width: 35%;">
+                            <p style="margin-bottom: 45px;">Mengetahui,<br>Kepala Sekolah</p>
+                            <p style="font-weight: bold; text-decoration: underline; margin: 0;">${headmasterName}</p>
+                            <p style="margin: 2px 0 0 0;">${headmasterNip}</p>
+                        </div>
+                        <div style="text-align: center; width: 35%;">
+                            <p style="margin-bottom: 45px;">Daha Selatan, ${todayDate}<br>${teacherRoleTitle}</p>
+                            <p style="font-weight: bold; text-decoration: underline; margin: 0;">${teacherName}</p>
+                            <p style="margin: 2px 0 0 0;">${teacherNip}</p>
+                        </div>
+                    </div>
+                `;
+
+                const opt = {
+                    margin:       [0.3, 0.3, 0.3, 0.3],
+                    filename:     `Rekap_Nilai_${clsName.replace(/\s+/g, '_')}_Semua_Kelas_${tw.replace(/\s+/g, '_')}_${year.replace(/\//g, '-')}.pdf`,
+                    image:        { type: 'jpeg', quality: 0.98 },
+                    html2canvas:  { scale: 2, logging: false },
+                    jsPDF:        { unit: 'mm', format: [215, 330], orientation: 'landscape' }
+                };
+
+                closeModal();
+                html2pdf().set(opt).from(printArea).save();
+                return;
+            }
+
+            let students = (parentObj && parentObj.students) ? parentObj.students : [];
+            let displayTitle = clsName;
+
+            let allSubjects = new Set();
+            students.forEach(s => {
+                Object.keys(s.grades || {}).forEach(sub => allSubjects.add(sub));
+            });
+            const subjectsList = Array.from(allSubjects);
+
+            let tableHeadersHtml = `<th style="border: 1px solid #333; padding: 6px; background-color: #f1f5f9; text-align: center; width: 40px;">No</th>`;
+            tableHeadersHtml += `<th style="border: 1px solid #333; padding: 6px; background-color: #f1f5f9; text-align: left;">Nama Siswa</th>`;
+            tableHeadersHtml += `<th style="border: 1px solid #333; padding: 6px; background-color: #f1f5f9; text-align: center; width: 80px;">Kelas</th>`;
+
+            subjectsList.forEach(sub => {
+                tableHeadersHtml += `<th style="border: 1px solid #333; padding: 6px; background-color: #f1f5f9; text-align: center;">${sub}<br><span style="font-size: 9px; font-weight: normal;">(Rata-rata)</span></th>`;
+            });
+
+            let tableRowsHtml = '';
+            if (students.length === 0) {
+                const totalCols = 3 + subjectsList.length;
+                tableRowsHtml = `<tr><td colspan="${totalCols}" style="border: 1px solid #333; padding: 12px; text-align: center; color: #666;">Tidak ada data siswa.</td></tr>`;
+            } else {
+                students.forEach((s, idx) => {
+                    tableRowsHtml += `<tr>`;
+                    tableRowsHtml += `<td style="border: 1px solid #333; padding: 6px; text-align: center;">${idx + 1}</td>`;
+                    tableRowsHtml += `<td style="border: 1px solid #333; padding: 6px; font-weight: bold;">${s.name}</td>`;
+                    tableRowsHtml += `<td style="border: 1px solid #333; padding: 6px; text-align: center;">${displayTitle}</td>`;
+
+                    subjectsList.forEach(sub => {
+                        const gradesArr = s.grades[sub] || [];
+                        const avg = getAverage(gradesArr);
+                        const hasGrades = gradesArr.length > 0;
+                        tableRowsHtml += `<td style="border: 1px solid #333; padding: 6px; text-align: center; font-weight: bold;">${hasGrades ? avg : '-'}</td>`;
+                    });
+
+                    tableRowsHtml += `</tr>`;
+                });
+            }
+
+            printArea.innerHTML = `
+                <div style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 16px;">
+                    <h2 style="font-size: 18px; font-weight: bold; margin: 0; text-transform: uppercase;">SD NEGERI 1 PARIGI</h2>
+                    <h1 style="font-size: 16px; font-weight: bold; margin: 4px 0 0 0; text-transform: uppercase;">REKAPITULASI NILAI RATA-RATA SISWA</h1>
+                    <p style="font-size: 12px; margin: 4px 0 0 0; font-weight: 500;">Kelas: <strong>${displayTitle}</strong> | <strong>${tw}</strong> Tahun Ajaran <strong>${year}</strong></p>
+                </div>
+
+                <table style="width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 24px;">
+                    <thead>
+                        <tr>${tableHeadersHtml}</tr>
+                    </thead>
+                    <tbody>
+                        ${tableRowsHtml}
+                    </tbody>
+                </table>
+
+                <div style="display: flex; justify-content: space-between; font-size: 11px; margin-top: 35px; page-break-inside: avoid;">
+                    <div style="text-align: center; width: 35%;">
+                        <p style="margin-bottom: 50px;">Mengetahui,<br>Kepala Sekolah</p>
+                        <p style="font-weight: bold; text-decoration: underline; margin: 0;">${headmasterName}</p>
+                        <p style="margin: 2px 0 0 0;">${headmasterNip}</p>
+                    </div>
+                    <div style="text-align: center; width: 35%;">
+                        <p style="margin-bottom: 50px;">Daha Selatan, ${todayDate}<br>${teacherRoleTitle}</p>
+                        <p style="font-weight: bold; text-decoration: underline; margin: 0;">${teacherName}</p>
+                        <p style="margin: 2px 0 0 0;">${teacherNip}</p>
+                    </div>
+                </div>
+            `;
+
+            const opt = {
+                margin:       [0.4, 0.4, 0.4, 0.4],
+                filename:     `Rekap_Nilai_${displayTitle.replace(/\s+/g, '_')}_${tw.replace(/\s+/g, '_')}_${year.replace(/\//g, '-')}.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, logging: false },
+                jsPDF:        { unit: 'mm', format: [215, 330], orientation: 'landscape' }
+            };
+
+            closeModal();
+            html2pdf().set(opt).from(printArea).save();
+        }
+
+        function getAverage(arr) {
+            if (!arr || arr.length === 0) return 0;
+            const sum = arr.reduce((a, b) => a + b, 0);
+            return (sum / arr.length).toFixed(1);
+        }
+
+        function render() {
+            updateAcademicHeaderDisplay();
+            const container = document.getElementById('app-container');
+            const navContainer = document.getElementById('nav-back-container');
+
+            if (currentView === 'classes') {
+                navContainer.innerHTML = '';
+                container.innerHTML = renderClassesView();
+            } else if (currentView === 'pai_subclasses') {
+                navContainer.innerHTML = `
+                    <button onclick="switchView('classes')" class="bg-indigo-700 hover:bg-indigo-800 text-white px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition shadow flex items-center gap-1.5">
+                        <i class="fa-solid fa-arrow-left"></i> Kembali
+                    </button>
+                `;
+                container.innerHTML = renderSubClassesView(selectedClass);
+            } else if (currentView === 'detail') {
+                const isSubCat = schoolData[selectedClass] && schoolData[selectedClass].isSubCategory;
+                const backTarget = isSubCat ? 'pai_subclasses' : 'classes';
+                navContainer.innerHTML = `
+                    <button onclick="switchView('${backTarget}')" class="bg-indigo-700 hover:bg-indigo-800 text-white px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition shadow flex items-center gap-1.5">
+                        <i class="fa-solid fa-arrow-left"></i> Kembali
+                    </button>
+                `;
+                container.innerHTML = renderClassDetailView(selectedClass, selectedSubClass);
+            }
+        }
+
+        function switchView(view, className = null, subClassName = null) {
+            currentView = view;
+            selectedClass = className;
+            selectedSubClass = subClassName;
+            render();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function renderClassesView() {
+            const classesList = Object.keys(schoolData);
+            const regularClasses = classesList.filter(cls => !schoolData[cls]?.isSubCategory);
+            const subjectClasses = classesList.filter(cls => schoolData[cls]?.isSubCategory);
+
+            let html = `
+                <div class="space-y-6">
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                        <h2 class="text-xl font-bold text-slate-800">Daftar Kelas</h2>
+                        <p class="text-slate-500 text-sm mt-1">Pilih salah satu kelas di bawah untuk melihat rincian siswa dan nilai.</p>
+                    </div>
+
+                    <div>
+                        <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 px-1">
+                            <i class="fa-solid fa-school mr-1.5 text-indigo-500"></i> Kelas Utama
+                        </h3>
+                        <div class="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+            `;
+
+            regularClasses.forEach(cls => {
+                const escapedCls = cls.replace(/'/g, "\\'");
+                const clsObj = schoolData[cls];
+                const students = (clsObj && clsObj.students) ? clsObj.students : [];
+                const totalInfo = `${students.length} Siswa`;
+
+                html += `
+                    <div onclick="handleClassClick('${escapedCls}')" class="bg-white p-3.5 sm:p-5 rounded-2xl shadow-sm border border-slate-200/80 hover:border-indigo-500 hover:shadow-md transition cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-2 group">
+                        <div class="flex items-center space-x-2.5 sm:space-x-3.5">
+                            <div class="w-10 h-10 sm:w-12 sm:h-12 bg-indigo-50 group-hover:bg-indigo-600 text-indigo-600 group-hover:text-white rounded-xl sm:rounded-2xl flex items-center justify-center font-bold text-base sm:text-lg transition-colors flex-shrink-0">
+                                <i class="fa-solid fa-school"></i>
+                            </div>
+                            <div class="min-w-0">
+                                <h3 class="text-sm sm:text-base font-bold text-slate-800 group-hover:text-indigo-600 transition-colors truncate">${cls}</h3>
+                                <p class="text-slate-500 text-[11px] sm:text-xs mt-0.5 truncate"><i class="fa-solid fa-users mr-1 text-slate-400"></i> ${totalInfo}</p>
+                            </div>
+                        </div>
+                        <div class="hidden sm:flex w-8 h-8 rounded-full bg-slate-50 group-hover:bg-indigo-50 items-center justify-center text-slate-400 group-hover:text-indigo-600 transition flex-shrink-0">
+                            <i class="fa-solid fa-chevron-right text-xs"></i>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += `
+                        </div>
+                    </div>
+            `;
+
+            if (subjectClasses.length > 0) {
+                html += `
+                    <div class="pt-2">
+                        <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 px-1">
+                            <i class="fa-solid fa-book-quran mr-1.5 text-emerald-500"></i> Kelompok Kelas Mata Pelajaran
+                        </h3>
+                        <div class="grid grid-cols-1 gap-3">
+                `;
+
+                subjectClasses.forEach(cls => {
+                    const escapedCls = cls.replace(/'/g, "\\'");
+                    const clsObj = schoolData[cls];
+                    const subCount = Object.keys(clsObj.subClasses || {}).length;
+                    const totalInfo = `Mencakup ${subCount} Tingkat Kelas (${clsObj.subjectName || 'Khusus'})`;
+
+                    html += `
+                        <div onclick="handleClassClick('${escapedCls}')" class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 hover:border-emerald-500 hover:shadow-md transition cursor-pointer flex items-center justify-between group">
+                            <div class="flex items-center space-x-3.5">
+                                <div class="w-12 h-12 bg-emerald-50 group-hover:bg-emerald-600 text-emerald-600 group-hover:text-white rounded-2xl flex items-center justify-center font-bold text-lg transition-colors">
+                                    <i class="fa-solid fa-book-quran"></i>
+                                </div>
+                                <div>
+                                    <h3 class="text-base font-bold text-slate-800 group-hover:text-emerald-600 transition-colors">${cls}</h3>
+                                    <p class="text-slate-500 text-xs mt-0.5"><i class="fa-solid fa-layer-group mr-1 text-slate-400"></i> ${totalInfo}</p>
+                                </div>
+                            </div>
+                            <div class="w-8 h-8 rounded-full bg-slate-50 group-hover:bg-emerald-50 flex items-center justify-center text-slate-400 group-hover:text-emerald-600 transition">
+                                <i class="fa-solid fa-chevron-right text-xs"></i>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                html += `
+                        </div>
+                    </div>
+                `;
+            }
+
+            html += `</div>`;
+            return html;
+        }
+
+        function handleClassClick(clsName) {
+            const clsObj = schoolData[clsName];
+            if (clsObj && clsObj.isSubCategory) {
+                switchView('pai_subclasses', clsName);
+            } else {
+                switchView('detail', clsName, null);
+            }
+        }
+
+        function renderSubClassesView(parentClsName) {
+            const parentObj = schoolData[parentClsName];
+            if (!parentObj || !parentObj.subClasses) return '';
+
+            const subClasses = parentObj.subClasses;
+            const subClassNames = Object.keys(subClasses);
+            const escapedParent = parentClsName.replace(/'/g, "\\'");
+
+            let html = `
+                <div class="space-y-6">
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                        <span class="bg-indigo-50 text-indigo-700 text-xs font-semibold px-2.5 py-1 rounded-md uppercase tracking-wide">Kelas Berbasis Mapel</span>
+                        <h2 class="text-2xl font-bold text-slate-800 mt-1">${parentClsName}</h2>
+                        <p class="text-slate-500 text-sm mt-0.5">Pilih sub-kelas di bawah ini.</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            `;
+
+            subClassNames.forEach(subName => {
+                const students = subClasses[subName] || [];
+                const escapedSub = subName.replace(/'/g, "\\'");
+
+                html += `
+                    <div onclick="switchView('detail', '${escapedParent}', '${escapedSub}')" class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80 hover:border-indigo-500 hover:shadow-md transition cursor-pointer flex items-center justify-between group">
+                        <div class="flex items-center space-x-4">
+                            <div class="w-12 h-12 bg-emerald-50 group-hover:bg-emerald-600 text-emerald-600 group-hover:text-white rounded-xl flex items-center justify-center font-bold text-lg transition-colors">
+                                <i class="fa-solid fa-layer-group"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-base font-bold text-slate-800 group-hover:text-emerald-600 transition-colors">${subName}</h3>
+                                <p class="text-slate-500 text-xs mt-0.5">${students.length} Siswa</p>
+                            </div>
+                        </div>
+                        <div class="w-8 h-8 rounded-full bg-slate-50 group-hover:bg-emerald-50 flex items-center justify-center text-slate-400 group-hover:text-emerald-600 transition">
+                            <i class="fa-solid fa-chevron-right text-xs"></i>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += `</div></div>`;
+            return html;
+        }
+
+        function renderClassDetailView(clsName, subClsName = null) {
+            let students = [];
+            let displayTitle = clsName;
+            const parentObj = schoolData[clsName];
+            const isSubCat = parentObj && parentObj.isSubCategory;
+            const fixedSubject = isSubCat ? (parentObj.subjectName || "PAI") : null;
+
+            if (isSubCat && subClsName) {
+                students = parentObj.subClasses[subClsName] || [];
+                displayTitle = `${subClsName}`;
+            } else {
+                students = (parentObj && parentObj.students) ? parentObj.students : [];
+            }
+
+            let allSubjects = new Set();
+            if (!isSubCat) {
+                students.forEach(s => {
+                    Object.keys(s.grades || {}).forEach(sub => allSubjects.add(sub));
+                });
+            } else {
+                allSubjects.add(fixedSubject);
+            }
+            const subjectsList = Array.from(allSubjects);
+
+            const escapedClsName = clsName.replace(/'/g, "\\'");
+            const escapedSubClsName = subClsName ? subClsName.replace(/'/g, "\\'") : '';
+
+            let html = `
+                <div class="space-y-6">
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <div>
+                            <span class="bg-indigo-50 text-indigo-700 text-xs font-semibold px-2.5 py-1 rounded-md uppercase tracking-wide">Rekap Nilai</span>
+                            <h2 class="text-2xl font-bold text-slate-800 mt-1">${displayTitle}</h2>
+                            <p class="text-slate-500 text-sm">Daftar siswa beserta rata-rata nilai per mata pelajaran.</p>
+                        </div>
+                    </div>
+            `;
+
+            if (students.length === 0) {
+                html += `
+                    <div class="bg-white rounded-2xl p-12 text-center border border-slate-200">
+                        <div class="w-16 h-16 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
+                            <i class="fa-solid fa-folder-open"></i>
+                        </div>
+                        <h3 class="text-lg font-bold text-slate-700">Belum ada siswa di kelas ini</h3>
+                        <p class="text-slate-500 text-sm mt-1">Gunakan menu Pengaturan di pojok kanan atas untuk menambahkan siswa.</p>
+                    </div>
+                `;
+            } else {
+                html += `
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr class="bg-slate-50 text-slate-600 text-xs font-semibold uppercase tracking-wider border-b border-slate-200">
+                                        <th class="p-4">Nama Siswa</th>
+                `;
+
+                subjectsList.forEach(sub => {
+                    html += `<th class="p-4 text-center">${sub} <span class="block text-[10px] text-slate-400 font-normal lowercase">(Rata-rata)</span></th>`;
+                });
+
+                html += `
+                                        <th class="p-4 text-center">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 text-sm">
+                `;
+
+                students.forEach(student => {
+                    const escapedStudentId = String(student.id || student.name).replace(/'/g, "\\'");
+                    html += `
+                        <tr class="hover:bg-slate-50/80 transition">
+                            <td class="p-4 font-semibold text-slate-800">
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-9 h-9 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-xs">
+                                        ${student.name.charAt(0)}
+                                    </div>
+                                    <span>${student.name}</span>
+                                </div>
+                            </td>
+                    `;
+
+                    subjectsList.forEach(sub => {
+                        const gradesArr = student.grades[sub] || [];
+                        const avg = getAverage(gradesArr);
+                        const hasGrades = gradesArr.length > 0;
+                        
+                        html += `
+                            <td class="p-4 text-center">
+                                <div class="inline-flex flex-col items-center">
+                                    <span class="font-bold ${hasGrades ? 'text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg' : 'text-slate-400'}">
+                                        ${hasGrades ? avg : '-'}
+                                    </span>
+                                    <span class="text-[11px] text-slate-400 mt-0.5">
+                                        ${hasGrades ? '(' + gradesArr.length + ' nilai)' : 'Belum ada'}
+                                    </span>
+                                </div>
+                            </td>
+                        `;
+                    });
+
+                    html += `
+                            <td class="p-4 text-center">
+                                <div class="flex items-center justify-center space-x-1.5">
+                                    <button onclick="openAddGradeModal('${escapedClsName}', '${escapedSubClsName}', '${escapedStudentId}')" title="Tambah Nilai Mapel" class="p-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-xl transition">
+                                        <i class="fa-solid fa-plus-circle"></i>
+                                    </button>
+                                    <button onclick="openDetailStudentModal('${escapedClsName}', '${escapedSubClsName}', '${escapedStudentId}')" title="Kelola / Lihat Detail Nilai" class="p-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-xl transition">
+                                        <i class="fa-solid fa-pen-to-square"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                });
+
+                html += `</tbody></table></div></div>`;
+            }
+
+            html += `</div>`;
+            return html;
+        }
+
+        function showModal(contentHtml) {
+            const modal = document.getElementById('custom-modal');
+            const content = document.getElementById('modal-content');
+            content.innerHTML = contentHtml;
+            modal.classList.remove('hidden');
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('custom-modal');
+            modal.classList.add('hidden');
+        }
+
+        function getStudentList(clsName, subClsName) {
+            const parent = schoolData[clsName];
+            if (!parent) return [];
+            if (parent.isSubCategory && subClsName) {
+                return parent.subClasses[subClsName] || [];
+            }
+            return parent.students || [];
+        }
+
+        function openAddGradeModal(clsName, subClsName, studentId) {
+            const students = getStudentList(clsName, subClsName);
+            const student = students.find(s => s.id === studentId);
+            if (!student) return;
+            const parentObj = schoolData[clsName];
+            const isSubCat = parentObj && parentObj.isSubCategory;
+            const fixedSubject = isSubCat ? (parentObj.subjectName || "PAI") : null;
+
+            let subjectInputHtml = '';
+            if (isSubCat) {
+                subjectInputHtml = `
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Mata Pelajaran</label>
+                        <input type="text" id="grade-subject" readonly value="${fixedSubject}" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-100 text-slate-700 font-semibold text-sm">
+                    </div>
+                `;
+            } else {
+                let allSubjects = new Set([...customSubjectsList]);
+                students.forEach(s => Object.keys(s.grades || {}).forEach(sub => allSubjects.add(sub)));
+                const availableSubjects = Array.from(allSubjects);
+
+                let subjectButtonsHtml = availableSubjects.map(sub => `
+                    <button type="button" onclick="selectSubjectOption('${sub}')" class="subject-chip px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-indigo-50 hover:border-indigo-500 hover:text-indigo-600 text-xs font-medium transition text-left flex items-center justify-between">
+                        <span>${sub}</span>
+                        <i class="fa-solid fa-chevron-right text-[10px] text-slate-400"></i>
+                    </button>
+                `).join('');
+
+                subjectInputHtml = `
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Pilih Mata Pelajaran (Klik salah satu)</label>
+                        <input type="text" id="grade-subject" required placeholder="Pilih dari daftar di bawah..." class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 text-sm mb-2">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-40 overflow-y-auto p-1.5 bg-slate-50 rounded-xl border border-slate-200">
+                            ${subjectButtonsHtml}
+                        </div>
+                    </div>
+                `;
+            }
+
+            showModal(`
+                <h3 class="text-lg font-bold text-slate-800 mb-1">Tambah Nilai</h3>
+                <p class="text-slate-500 text-sm mb-4">Siswa: <span class="font-semibold text-slate-700">${student.name}</span></p>
+                <form onsubmit="handleAddGradeSubmit(event, '${clsName}', '${subClsName}', '${studentId}')" class="space-y-4">
+                    ${subjectInputHtml}
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Nilai (0 - 100)</label>
+                        <input type="number" id="grade-value" min="0" max="100" required placeholder="Contoh: 85" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 text-sm">
+                    </div>
+                    <div class="flex justify-end space-x-2 pt-2">
+                        <button type="button" onclick="closeModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-medium transition">Batal</button>
+                        <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-medium transition">Tambah Nilai</button>
+                    </div>
+                </form>
+            `);
+        }
+
+        function selectSubjectOption(subName) {
+            document.getElementById('grade-subject').value = subName;
+            document.querySelectorAll('.subject-chip').forEach(btn => {
+                if (btn.querySelector('span').textContent.trim() === subName) {
+                    btn.classList.add('bg-indigo-50', 'border-indigo-500', 'text-indigo-600');
+                } else {
+                    btn.classList.remove('bg-indigo-50', 'border-indigo-500', 'text-indigo-600');
+                }
+            });
+        }
+
+        function handleAddGradeSubmit(event, clsName, subClsName, studentId) {
+            event.preventDefault();
+            const subject = document.getElementById('grade-subject').value.trim();
+            const val = parseFloat(document.getElementById('grade-value').value);
+
+            if (!subject || isNaN(val)) return;
+
+            const students = getStudentList(clsName, subClsName);
+            const student = students.find(s => s.id === studentId);
+            if (student) {
+                if (!student.grades[subject]) {
+                    student.grades[subject] = [];
+                }
+                student.grades[subject].push(val);
+                saveData();
+                closeModal();
+                render();
+            }
+        }
+
+        function openDetailStudentModal(clsName, subClsName, studentId) {
+            const students = getStudentList(clsName, subClsName);
+            const student = students.find(s => s.id === studentId);
+            if (!student) return;
+
+            let subjectsHtml = '';
+            const subjects = Object.keys(student.grades || {});
+
+            if (subjects.length === 0) {
+                subjectsHtml = `<p class="text-sm text-slate-400 italic">Belum ada nilai mata pelajaran.</p>`;
+            } else {
+                subjectsHtml = `<div class="space-y-4 max-h-72 overflow-y-auto pr-1">`;
+                subjects.forEach(sub => {
+                    const arr = student.grades[sub];
+                    const avg = getAverage(arr);
+                    
+                    let itemsHtml = arr.map((score, index) => `
+                        <div class="flex items-center justify-between bg-white px-3 py-2 rounded-lg border border-slate-200 text-xs gap-2">
+                            <span class="text-slate-600 font-medium">Nilai #${index + 1}: <strong class="text-slate-800 text-sm ml-1">${score}</strong></span>
+                            <div class="flex items-center space-x-1">
+                                <button type="button" onclick="openEditIndividualGradeModal('${clsName}', '${subClsName}', '${studentId}', '${sub}', ${index}, ${score})" class="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-600 rounded-lg font-medium transition" title="Edit nilai ini">
+                                    <i class="fa-solid fa-pen mr-1"></i> Edit
+                                </button>
+                            </div>
+                        </div>
+                    `).join('');
+
+                    subjectsHtml += `
+                        <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-2">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <h4 class="font-bold text-slate-800 text-sm">${sub}</h4>
+                                    <p class="text-xs font-semibold text-indigo-600 mt-0.5">Rata-rata: ${avg}</p>
+                                </div>
+                            </div>
+                            <div class="space-y-1.5 pt-1 border-t border-slate-200/60">
+                                ${itemsHtml}
+                            </div>
+                        </div>
+                    `;
+                });
+                subjectsHtml += `</div>`;
+            }
+
+            showModal(`
+                <h3 class="text-lg font-bold text-slate-800 mb-1">Kelola / Edit Nilai Siswa</h3>
+                <p class="text-slate-500 text-sm mb-4">Nama: <span class="font-semibold text-slate-700">${student.name}</span></p>
+                <div class="mb-4">
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-2">Rincian Seluruh Nilai Per Mapel</label>
+                    ${subjectsHtml}
+                </div>
+                <div class="flex justify-end pt-2">
+                    <button type="button" onclick="closeModal()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-medium transition">Tutup</button>
+                </div>
+            `);
+        }
+
+        function openEditIndividualGradeModal(clsName, subClsName, studentId, subject, index, currentScore) {
+            showModal(`
+                <h3 class="text-lg font-bold text-slate-800 mb-1">Edit Nilai</h3>
+                <p class="text-slate-500 text-sm mb-4">Mapel: <span class="font-semibold text-slate-700">${subject}</span> (Nilai #${index + 1})</p>
+                <form onsubmit="handleUpdateIndividualGrade(event, '${clsName}', '${subClsName}', '${studentId}', '${subject}', ${index})" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Nilai Baru (0 - 100)</label>
+                        <input type="number" id="edit-grade-value" min="0" max="100" required value="${currentScore}" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 text-sm">
+                    </div>
+                    <div class="flex justify-end space-x-2 pt-2">
+                        <button type="button" onclick="openDetailStudentModal('${clsName}', '${subClsName}', '${studentId}')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-medium transition">Kembali</button>
+                        <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-medium transition">Simpan Perubahan</button>
+                    </div>
+                </form>
+            `);
+        }
+
+        function handleUpdateIndividualGrade(event, clsName, subClsName, studentId, subject, index) {
+            event.preventDefault();
+            const val = parseFloat(document.getElementById('edit-grade-value').value);
+            if (isNaN(val)) return;
+
+            const students = getStudentList(clsName, subClsName);
+            const student = students.find(s => s.id === studentId);
+            if (student && student.grades[subject]) {
+                student.grades[subject][index] = val;
+                saveData();
+                openDetailStudentModal(clsName, subClsName, studentId);
+                render();
+            }
+        }
+
+        function openSettingsModal() {
+            showModal(`
+                <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+                    <div class="flex items-center space-x-2">
+                        <i class="fa-solid fa-gear text-indigo-600 text-lg"></i>
+                        <h3 class="text-lg font-bold text-slate-800">Pengaturan Data</h3>
+                    </div>
+                    <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 p-1">
+                        <i class="fa-solid fa-xmark text-lg"></i>
+                    </button>
+                </div>
+
+                <div class="space-y-2">
+                    <button onclick="openAdminSettingsModal()" class="w-full text-left p-3.5 rounded-xl border border-indigo-200 bg-indigo-50/40 hover:bg-indigo-50 transition flex items-center justify-between group">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-9 h-9 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold">
+                                <i class="fa-solid fa-user-shield"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-bold text-slate-800 group-hover:text-indigo-600">Pengaturan Admin</h4>
+                                <p class="text-xs text-slate-500">Atur Tahun Ajaran dan TW (Triwulan)</p>
+                            </div>
+                        </div>
+                        <i class="fa-solid fa-chevron-right text-xs text-slate-400"></i>
+                    </button>
+
+                    <button onclick="openAddClassOptionsModal()" class="w-full text-left p-3.5 rounded-xl border border-slate-200 hover:border-indigo-500 hover:bg-indigo-50/50 transition flex items-center justify-between group">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-9 h-9 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold">
+                                <i class="fa-solid fa-folder-plus"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-bold text-slate-800 group-hover:text-indigo-600">Tambah Kelas Baru</h4>
+                                <p class="text-xs text-slate-500">Tambah kelas biasa atau kelas mapel (seperti PAI)</p>
+                            </div>
+                        </div>
+                        <i class="fa-solid fa-chevron-right text-xs text-slate-400"></i>
+                    </button>
+
+                    <button onclick="openManageClassesModal()" class="w-full text-left p-3.5 rounded-xl border border-slate-200 hover:border-indigo-500 hover:bg-indigo-50/50 transition flex items-center justify-between group">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-9 h-9 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center font-bold">
+                                <i class="fa-solid fa-pen-to-square"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-bold text-slate-800 group-hover:text-indigo-600">Edit / Kelola Kelas</h4>
+                                <p class="text-xs text-slate-500">Ubah nama kelas atau hapus kelas</p>
+                            </div>
+                        </div>
+                        <i class="fa-solid fa-chevron-right text-xs text-slate-400"></i>
+                    </button>
+
+                    <button onclick="openAddStudentSettingModal()" class="w-full text-left p-3.5 rounded-xl border border-slate-200 hover:border-indigo-500 hover:bg-indigo-50/50 transition flex items-center justify-between group">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-9 h-9 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold">
+                                <i class="fa-solid fa-users"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-bold text-slate-800 group-hover:text-indigo-600">Tambah / Edit Siswa</h4>
+                                <p class="text-xs text-slate-500">Tambah siswa baru atau ubah nama siswa</p>
+                            </div>
+                        </div>
+                        <i class="fa-solid fa-chevron-right text-xs text-slate-400"></i>
+                    </button>
+
+                    <button onclick="openManageSubjectsModal()" class="w-full text-left p-3.5 rounded-xl border border-slate-200 hover:border-indigo-500 hover:bg-indigo-50/50 transition flex items-center justify-between group">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-9 h-9 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center font-bold">
+                                <i class="fa-solid fa-book"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-bold text-slate-800 group-hover:text-indigo-600">Tambah / Edit Mapel</h4>
+                                <p class="text-xs text-slate-500">Kelola daftar mata pelajaran standar</p>
+                            </div>
+                        </div>
+                        <i class="fa-solid fa-chevron-right text-xs text-slate-400"></i>
+                    </button>
+                </div>
+            `);
+        }
+
+        function openAdminSettingsModal() {
+            const allClasses = Object.keys(schoolData);
+
+            let teacherListFieldsHtml = allClasses.map((cls) => {
+                const isSub = schoolData[cls]?.isSubCategory;
+                const labelTitle = isSub ? `Guru Mapel (${cls})` : `Guru ${cls}`;
+                const tData = (adminSettings.teachers && adminSettings.teachers[cls]) || { name: '', nip: '' };
+                const safeKey = encodeURIComponent(cls);
+
+                return `
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-200/80 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                                <i class="fa-solid ${isSub ? 'fa-book-quran text-emerald-500' : 'fa-chalkboard-user text-indigo-500'}"></i>
+                                ${labelTitle}
+                            </span>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-[10px] font-semibold text-slate-500 uppercase mb-0.5">Nama Guru</label>
+                                <input type="text" data-teacher-key="${safeKey}" data-field="name" value="${tData.name || ''}" placeholder="Nama Guru & Gelar" class="teacher-input w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs focus:outline-none focus:border-indigo-500">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-semibold text-slate-500 uppercase mb-0.5">NIP Guru</label>
+                                <input type="text" data-teacher-key="${safeKey}" data-field="nip" value="${tData.nip || ''}" placeholder="Contoh: 198501..." class="teacher-input w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs focus:outline-none focus:border-indigo-500">
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            showModal(`
+                <h3 class="text-lg font-bold text-slate-800 mb-1">Pengaturan Admin</h3>
+                <p class="text-slate-500 text-xs mb-4">Kelola informasi sekolah, Kepala Sekolah, penugasan Guru, serta tautan Spreadsheet.</p>
+
+                <form onsubmit="handleSaveAdminSettings(event)" class="space-y-4 max-h-[65vh] overflow-y-auto pr-1">
+                    <div class="bg-emerald-50/60 p-3.5 rounded-xl border border-emerald-200 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <label class="block text-xs font-bold text-emerald-900 uppercase">Tautan Google Spreadsheet</label>
+                            <button type="button" onclick="triggerManualSpreadsheetReload()" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition flex items-center gap-1.5 shadow-sm">
+                                <i class="fa-solid fa-rotate-right"></i> Muat Ulang Spreadsheet
+                            </button>
+                        </div>
+                        <input type="url" id="admin-spreadsheet-url" required value="${adminSettings.spreadsheetUrl || defaultAdminSettings.spreadsheetUrl}" placeholder="https://docs.google.com/spreadsheets/d/..." class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-emerald-500 text-xs bg-white">
+                        <p class="text-[11px] text-emerald-700">Gunakan link Google Spreadsheet agar aplikasi dapat menyinkronkan data rekap nilai.</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-indigo-50/40 p-3 rounded-xl border border-indigo-100">
+                        <div>
+                            <label class="block text-xs font-semibold text-indigo-900 uppercase mb-1">Tahun Ajaran</label>
+                            <input type="text" id="admin-academic-year" required value="${adminSettings.academicYear || '2026/2027'}" placeholder="Contoh: 2026/2027" class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-indigo-900 uppercase mb-1">Triwulan (TW)</label>
+                            <select id="admin-triwulan" required class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 text-sm bg-white">
+                                <option value="Triwulan I" ${adminSettings.triwulan === 'Triwulan I' ? 'selected' : ''}>Triwulan I (TW 1)</option>
+                                <option value="Triwulan II" ${adminSettings.triwulan === 'Triwulan II' ? 'selected' : ''}>Triwulan II (TW 2)</option>
+                                <option value="Triwulan III" ${adminSettings.triwulan === 'Triwulan III' ? 'selected' : ''}>Triwulan III (TW 3)</option>
+                                <option value="Triwulan IV" ${adminSettings.triwulan === 'Triwulan IV' ? 'selected' : ''}>Triwulan IV (TW 4)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="bg-amber-50/60 p-3.5 rounded-xl border border-amber-200/80 space-y-2.5">
+                        <div class="flex items-center space-x-2 text-amber-800 font-bold text-xs">
+                            <i class="fa-solid fa-user-tie text-base text-amber-600"></i>
+                            <span>NAMA & NIP KEPALA SEKOLAH</span>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            <div>
+                                <label class="block text-[11px] font-semibold text-slate-600 uppercase mb-1">Nama Kepala Sekolah</label>
+                                <input type="text" id="admin-headmaster-name" required value="${adminSettings.headmasterName || ''}" placeholder="Nama Kepsek & Gelar" class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-amber-500 text-xs font-medium">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-semibold text-slate-600 uppercase mb-1">NIP Kepala Sekolah</label>
+                                <input type="text" id="admin-headmaster-nip" value="${adminSettings.headmasterNip || ''}" placeholder="NIP Kepala Sekolah" class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-amber-500 text-xs font-medium">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="space-y-2.5 pt-1">
+                        <h4 class="text-xs font-bold text-slate-600 uppercase tracking-wide flex items-center gap-1.5">
+                            <i class="fa-solid fa-users-rectangle text-indigo-600"></i>
+                            Daftar Nama & NIP Guru Per Kelas / Mapel
+                        </h4>
+                        <div class="space-y-2">
+                            ${teacherListFieldsHtml}
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end space-x-2 pt-3 border-t border-slate-100">
+                        <button type="button" onclick="openSettingsModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition">Kembali</button>
+                        <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold transition">Simpan Pengaturan Admin</button>
+                    </div>
+                </form>
+            `);
+        }
+
+        function handleSaveAdminSettings(event) {
+            event.preventDefault();
+            const year = document.getElementById('admin-academic-year').value.trim();
+            const tw = document.getElementById('admin-triwulan').value;
+            const hmName = document.getElementById('admin-headmaster-name').value.trim();
+            const hmNip = document.getElementById('admin-headmaster-nip').value.trim();
+            const sheetUrl = document.getElementById('admin-spreadsheet-url').value.trim();
+
+            if (!year) return;
+
+            adminSettings.academicYear = year;
+            adminSettings.triwulan = tw;
+            adminSettings.headmasterName = hmName;
+            adminSettings.headmasterNip = hmNip;
+            adminSettings.spreadsheetUrl = sheetUrl || defaultAdminSettings.spreadsheetUrl;
+
+            const teacherInputs = document.querySelectorAll('.teacher-input');
+            if (!adminSettings.teachers) adminSettings.teachers = {};
+
+            teacherInputs.forEach(input => {
+                const key = decodeURIComponent(input.getAttribute('data-teacher-key'));
+                const field = input.getAttribute('data-field');
+                if (!adminSettings.teachers[key]) {
+                    adminSettings.teachers[key] = { name: '', nip: '' };
+                }
+                adminSettings.teachers[key][field] = input.value.trim();
+            });
+
+            saveData();
+            openSettingsModal();
+            render();
+        }
+
+        function openAddClassOptionsModal() {
+            showModal(`
+                <h3 class="text-lg font-bold text-slate-800 mb-1">Pilih Jenis Kelas</h3>
+                <p class="text-slate-500 text-sm mb-4">Pilih jenis kelas yang ingin Anda tambahkan.</p>
+                
+                <div class="space-y-3">
+                    <div onclick="openFormAddRegularClass()" class="p-4 rounded-xl border border-slate-200 hover:border-indigo-500 hover:bg-indigo-50/30 transition cursor-pointer flex items-center space-x-3">
+                        <div class="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold">
+                            <i class="fa-solid fa-school"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-slate-800 text-sm">1. Tambah Kelas Biasa</h4>
+                            <p class="text-xs text-slate-500">Contoh: Kelas 3 (Mendukung banyak mapel)</p>
+                        </div>
+                    </div>
+
+                    <div onclick="openFormAddSubjectClass()" class="p-4 rounded-xl border border-slate-200 hover:border-indigo-500 hover:bg-indigo-50/30 transition cursor-pointer flex items-center space-x-3">
+                        <div class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold">
+                            <i class="fa-solid fa-book-quran"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-slate-800 text-sm">2. Tambah Kelas Mapel (Seperti PAI)</h4>
+                            <p class="text-xs text-slate-500">Mempunyai sub-kelas 1-6 dan khusus untuk 1 mata pelajaran</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-end pt-4">
+                    <button type="button" onclick="openSettingsModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-medium transition">Kembali</button>
+                </div>
+            `);
+        }
+
+        function openFormAddRegularClass() {
+            showModal(`
+                <h3 class="text-lg font-bold text-slate-800 mb-1">Tambah Kelas Biasa</h3>
+                <p class="text-slate-500 text-sm mb-4">Masukkan nama kelas biasa baru.</p>
+                <form onsubmit="handleAddRegularClassSubmit(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Nama Kelas</label>
+                        <input type="text" id="new-reg-class-name" required placeholder="Contoh: Kelas 3" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 text-sm">
+                    </div>
+                    <div class="flex justify-end space-x-2 pt-2">
+                        <button type="button" onclick="openAddClassOptionsModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-medium transition">Kembali</button>
+                        <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-medium transition">Simpan Kelas</button>
+                    </div>
+                </form>
+            `);
+        }
+
+        function handleAddRegularClassSubmit(event) {
+            event.preventDefault();
+            const className = document.getElementById('new-reg-class-name').value.trim();
+            if (!className) return;
+
+            if (schoolData[className]) {
+                alert('Nama kelas sudah ada!');
+                return;
+            }
+
+            schoolData[className] = {
+                isSubCategory: false,
+                students: []
+            };
+            saveData();
+            openSettingsModal();
+            render();
+        }
+
+        function handleAddSubjectClassSubmit(event) {
+            event.preventDefault();
+            const groupName = document.getElementById('new-sub-class-title').value.trim();
+            const subjectName = document.getElementById('new-sub-class-subject').value.trim();
+
+            if (!groupName || !subjectName) return;
+
+            if (schoolData[groupName]) {
+                alert('Nama kelas ini sudah ada!');
+                return;
+            }
+
+            const subClasses = {};
+            for (let i = 1; i <= 6; i++) {
+                subClasses[`${subjectName} Kelas ${i}`] = [];
+            }
+
+            schoolData[groupName] = {
+                isSubCategory: true,
+                subjectName: subjectName,
+                subClasses: subClasses
+            };
+
+            saveData();
+            openSettingsModal();
+            render();
+        }
+
+        function openManageClassesModal() {
+            const classKeys = Object.keys(schoolData);
+            let classListHtml = classKeys.map(cls => `
+                <div class="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-200 text-sm">
+                    <span class="font-semibold text-slate-800">${cls}</span>
+                    <button onclick="openRenameClassModal('${cls.replace(/'/g, "\\'")}')" class="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-600 rounded-lg text-xs font-semibold transition">
+                        <i class="fa-solid fa-pen"></i> Edit
+                    </button>
+                </div>
+            `).join('');
+
+            showModal(`
+                <h3 class="text-lg font-bold text-slate-800 mb-1">Edit / Kelola Kelas</h3>
+                <p class="text-slate-500 text-sm mb-4">Ubah nama kelas yang terdaftar.</p>
+                <div class="space-y-2 max-h-60 overflow-y-auto mb-4">
+                    ${classListHtml}
+                </div>
+                <div class="flex justify-end">
+                    <button type="button" onclick="openSettingsModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-medium transition">Kembali</button>
+                </div>
+            `);
+        }
+
+        function openRenameClassModal(oldName) {
+            showModal(`
+                <h3 class="text-lg font-bold text-slate-800 mb-1">Ubah Nama Kelas</h3>
+                <p class="text-slate-500 text-sm mb-4">Mengubah nama kelas: <span class="font-semibold text-slate-700">${oldName}</span></p>
+                <form onsubmit="handleRenameClassSubmit(event, '${oldName.replace(/'/g, "\\'")}')" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Nama Baru</label>
+                        <input type="text" id="rename-class-input" required value="${oldName}" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 text-sm">
+                    </div>
+                    <div class="flex justify-end space-x-2 pt-2">
+                        <button type="button" onclick="openManageClassesModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-medium transition">Batal</button>
+                        <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-medium transition">Simpan Perubahan</button>
+                    </div>
+                </form>
+            `);
+        }
+
+        function handleRenameClassSubmit(event, oldName) {
+            event.preventDefault();
+            const newName = document.getElementById('rename-class-input').value.trim();
+            if (!newName || newName === oldName) return;
+
+            if (schoolData[newName]) {
+                alert('Nama kelas sudah digunakan!');
+                return;
+            }
+
+            schoolData[newName] = schoolData[oldName];
+            delete schoolData[oldName];
+            saveData();
+
+            if (selectedClass === oldName) {
+                selectedClass = newName;
+            }
+
+            openManageClassesModal();
+            render();
+        }
+
+        function openAddStudentSettingModal() {
+            let classOptionsHtml = '';
+            Object.keys(schoolData).forEach(cls => {
+                const clsObj = schoolData[cls];
+                if (clsObj.isSubCategory) {
+                    Object.keys(clsObj.subClasses || {}).forEach(subCls => {
+                        classOptionsHtml += `<option value="${cls}||${subCls}">${cls} -> ${subCls}</option>`;
+                    });
+                } else {
+                    classOptionsHtml += `<option value="${cls}||">${cls}</option>`;
+                }
+            });
+
+            let existingStudentsListHtml = '';
+            let hasStudents = false;
+
+            Object.keys(schoolData).forEach(cls => {
+                const clsObj = schoolData[cls];
+                if (clsObj.isSubCategory) {
+                    Object.keys(clsObj.subClasses || {}).forEach(subCls => {
+                        const stds = clsObj.subClasses[subCls] || [];
+                        stds.forEach(std => {
+                            hasStudents = true;
+                            existingStudentsListHtml += `
+                                <div class="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-sm">
+                                    <div>
+                                        <span class="font-semibold text-slate-800">${std.name}</span>
+                                        <span class="block text-[11px] text-slate-400">${cls} - ${subCls}</span>
+                                    </div>
+                                    <button onclick="openRenameStudentModal('${cls.replace(/'/g, "\\'")}', '${subCls.replace(/'/g, "\\'")}', '${std.id.replace(/'/g, "\\'")}', '${std.name.replace(/'/g, "\\'")}')" class="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-600 rounded-lg text-xs font-semibold transition">
+                                        <i class="fa-solid fa-pen"></i> Edit Nama
+                                    </button>
+                                </div>
+                            `;
+                        });
+                    });
+                } else {
+                    const stds = clsObj.students || [];
+                    stds.forEach(std => {
+                        hasStudents = true;
+                        existingStudentsListHtml += `
+                            <div class="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-sm">
+                                <div>
+                                    <span class="font-semibold text-slate-800">${std.name}</span>
+                                    <span class="block text-[11px] text-slate-400">${cls}</span>
+                                </div>
+                                <button onclick="openRenameStudentModal('${cls.replace(/'/g, "\\'")}', '', '${std.id.replace(/'/g, "\\'")}', '${std.name.replace(/'/g, "\\'")}')" class="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-600 rounded-lg text-xs font-semibold transition">
+                                    <i class="fa-solid fa-pen"></i> Edit Nama
+                                </button>
+                            </div>
+                        `;
+                    });
+                }
+            });
+
+            if (!hasStudents) {
+                existingStudentsListHtml = `<p class="text-xs text-slate-400 italic">Belum ada siswa terdaftar.</p>`;
+            }
+
+            showModal(`
+                <h3 class="text-lg font-bold text-slate-800 mb-1">Kelola Siswa</h3>
+                <p class="text-slate-500 text-sm mb-4">Tambah siswa baru atau ubah nama siswa terdaftar.</p>
+                
+                <div class="bg-indigo-50/50 p-3.5 rounded-xl border border-indigo-100 mb-5">
+                    <h4 class="text-xs font-bold text-indigo-700 uppercase tracking-wide mb-2"><i class="fa-solid fa-user-plus mr-1"></i> Tambah Siswa Baru</h4>
+                    <form onsubmit="handleAddStudentSettingSubmit(event)" class="space-y-3">
+                        <div>
+                            <label class="block text-[11px] font-semibold text-slate-600 uppercase mb-1">Pilih Kelas</label>
+                            <select id="student-target-class" required class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 text-sm bg-white">
+                                ${classOptionsHtml}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-semibold text-slate-600 uppercase mb-1">Nama Siswa Baru</label>
+                            <input type="text" id="setting-student-name" required placeholder="Contoh: Muhammad Rizky" class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 text-sm">
+                        </div>
+                        <button type="submit" class="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold transition">
+                            <i class="fa-solid fa-plus mr-1"></i> Tambah Siswa
+                        </button>
+                    </form>
+                </div>
+
+                <div>
+                    <h4 class="text-xs font-bold text-slate-600 uppercase tracking-wide mb-2"><i class="fa-solid fa-user-pen mr-1"></i> Edit Nama Siswa Terdaftar</h4>
+                    <div class="space-y-2 max-h-44 overflow-y-auto pr-1">
+                        ${existingStudentsListHtml}
+                    </div>
+                </div>
+
+                <div class="flex justify-end pt-4 border-t border-slate-100 mt-4">
+                    <button type="button" onclick="openSettingsModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-medium transition">Kembali</button>
+                </div>
+            `);
+        }
+
+        function openRenameStudentModal(clsName, subClsName, studentId, currentName) {
+            showModal(`
+                <h3 class="text-lg font-bold text-slate-800 mb-1">Edit Nama Siswa</h3>
+                <p class="text-slate-500 text-sm mb-4">Ubah nama untuk: <span class="font-semibold text-slate-700">${currentName}</span></p>
+                <form onsubmit="handleRenameStudentSubmit(event, '${clsName.replace(/'/g, "\\'")}', '${subClsName.replace(/'/g, "\\'")}', '${studentId.replace(/'/g, "\\'")}')" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Nama Baru</label>
+                        <input type="text" id="edit-student-name-input" required value="${currentName}" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 text-sm">
+                    </div>
+                    <div class="flex justify-end space-x-2 pt-2">
+                        <button type="button" onclick="openAddStudentSettingModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-medium transition">Batal</button>
+                        <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-medium transition">Simpan Perubahan</button>
+                    </div>
+                </form>
+            `);
+        }
+
+        function handleRenameStudentSubmit(event, clsName, subClsName, studentId) {
+            event.preventDefault();
+            const newName = document.getElementById('edit-student-name-input').value.trim();
+            if (!newName) return;
+
+            const students = getStudentList(clsName, subClsName);
+            const student = students.find(s => s.id === studentId);
+            if (student) {
+                student.name = newName;
+                saveData();
+                openAddStudentSettingModal();
+                render();
+            }
+        }
+
+        function handleAddStudentSettingSubmit(event) {
+            event.preventDefault();
+            const target = document.getElementById('student-target-class').value;
+            const studentName = document.getElementById('setting-student-name').value.trim();
+
+            if (!target || !studentName) return;
+
+            const [clsName, subClsName] = target.split('||');
+            const newStudent = {
+                id: 's_' + Math.random().toString(36).substring(2, 9),
+                name: studentName,
+                grades: {}
+            };
+
+            const parentObj = schoolData[clsName];
+            if (parentObj.isSubCategory && subClsName) {
+                parentObj.subClasses[subClsName].push(newStudent);
+            } else {
+                parentObj.students.push(newStudent);
+            }
+
+            saveData();
+            openSettingsModal();
+            render();
+        }
+
+        function openManageSubjectsModal() {
+            let subjectsListHtml = customSubjectsList.map((sub, idx) => `
+                <div class="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-sm">
+                    <span class="font-medium text-slate-800">${sub}</span>
+                    <button onclick="openEditSubjectNameModal(${idx})" class="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-600 rounded-lg text-xs font-semibold transition">
+                        <i class="fa-solid fa-pen"></i> Edit
+                    </button>
+                </div>
+            `).join('');
+
+            showModal(`
+                <h3 class="text-lg font-bold text-slate-800 mb-1">Tambah / Edit Mapel Standar</h3>
+                <p class="text-slate-500 text-sm mb-3">Daftar mata pelajaran yang dapat dipilih saat input nilai.</p>
+
+                <form onsubmit="handleAddNewSubjectSubmit(event)" class="flex gap-2 mb-4">
+                    <input type="text" id="new-custom-subject-input" required placeholder="Tambah Mapel Baru..." class="flex-grow px-3.5 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-indigo-500">
+                    <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 rounded-xl text-sm font-medium transition">
+                        <i class="fa-solid fa-plus mr-1"></i> Tambah
+                    </button>
+                </form>
+
+                <div class="space-y-2 max-h-52 overflow-y-auto mb-4">
+                    ${subjectsListHtml}
+                </div>
+
+                <div class="flex justify-end">
+                    <button type="button" onclick="openSettingsModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-medium transition">Kembali</button>
+                </div>
+            `);
+        }
+
+        function handleAddNewSubjectSubmit(event) {
+            event.preventDefault();
+            const val = document.getElementById('new-custom-subject-input').value.trim();
+            if (!val) return;
+
+            if (!customSubjectsList.includes(val)) {
+                customSubjectsList.push(val);
+                saveData();
+            }
+            openManageSubjectsModal();
+        }
+
+        function openEditSubjectNameModal(index) {
+            const currentSub = customSubjectsList[index];
+            showModal(`
+                <h3 class="text-lg font-bold text-slate-800 mb-1">Edit Mata Pelajaran</h3>
+                <p class="text-slate-500 text-sm mb-4">Ubah nama mapel: <span class="font-semibold text-slate-700">${currentSub}</span></p>
+                <form onsubmit="handleUpdateSubjectNameSubmit(event, ${index})" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Nama Mapel Baru</label>
+                        <input type="text" id="edit-subject-input" required value="${currentSub}" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 text-sm">
+                    </div>
+                    <div class="flex justify-end space-x-2 pt-2">
+                        <button type="button" onclick="openManageSubjectsModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-medium transition">Batal</button>
+                        <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-medium transition">Simpan Perubahan</button>
+                    </div>
+                </form>
+            `);
+        }
+
+        function handleUpdateSubjectNameSubmit(event, index) {
+            event.preventDefault();
+            const newVal = document.getElementById('edit-subject-input').value.trim();
+            if (!newVal) return;
+
+            customSubjectsList[index] = newVal;
+            saveData();
+            openManageSubjectsModal();
+        }
+
+
+        // Integrasi Google Apps Script: data utama dibaca/ditulis ke Spreadsheet, bukan hanya localStorage.
+        function fetchSpreadsheetData(showLoader = true) {
+            const loader = document.getElementById('loading-overlay');
+            if (loader && showLoader) loader.classList.remove('hidden');
+            if (!(window.google && google.script && google.script.run)) {
+                if (loader) loader.classList.add('hidden');
+                render();
+                return;
+            }
+            google.script.run
+                .withSuccessHandler(function(payload) {
+                    try {
+                        schoolData = payload.schoolData || {};
+                        customSubjectsList = payload.subjects || defaultSubjects;
+                        adminSettings = Object.assign({}, defaultAdminSettings, payload.settings || {});
+                        adminSettings.teachers = payload.settings?.teachers || {};
+                        saveLocalOnly();
+                    } catch (e) { console.error(e); }
+                    if (loader) loader.classList.add('hidden');
+                    render();
+                })
+                .withFailureHandler(function(err) {
+                    if (loader) loader.classList.add('hidden');
+                    alert('Gagal membaca Spreadsheet: ' + (err.message || err));
+                    render();
+                }).getAppData();
+        }
+        function saveLocalOnly() {
+            localStorage.setItem('school_grade_recap_v4', JSON.stringify(schoolData));
+            localStorage.setItem('school_grade_subjects_v4', JSON.stringify(customSubjectsList));
+            localStorage.setItem('school_grade_admin_v4', JSON.stringify(adminSettings));
+        }
+        function saveData(syncToBackend = true) {
+            saveLocalOnly();
+            if (syncToBackend && window.google && google.script && google.script.run) {
+                google.script.run
+                    .withFailureHandler(err => alert('Gagal menyimpan ke Spreadsheet: ' + (err.message || err)))
+                    .saveAppData({
+                        schoolData: schoolData,
+                        subjects: customSubjectsList,
+                        settings: adminSettings
+                    });
+            }
+        }
+        function triggerManualSpreadsheetReload() { fetchSpreadsheetData(true); }
+
+        window.onload = function() {
+            // Automatically fetch data from spreadsheet on app start
+            fetchSpreadsheetData(true);
+        };
+    </script>
+</body>
+</html>
