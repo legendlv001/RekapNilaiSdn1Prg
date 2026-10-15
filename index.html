@@ -144,7 +144,7 @@
                 "Kelas PAI": { name: "", nip: "" }
             },
             spreadsheetUrl: "https://docs.google.com/spreadsheets/d/1dHd8-ixTrO8kjj_ThpKcE5BZX5c5SnVRS2m6PSzpwMg/edit?usp=drivesdk",
-            scriptUrl: ""
+            scriptUrl: "https://script.google.com/macros/s/AKfycby9S73SRXjrhdLcoekuaYO2WFJVzoJJOmygexFlGbO0pt7lCz7JjjLqTmbHxKa1Ee48/exec"
         };
 
         let schoolData = loadAndMigrateData();
@@ -1994,32 +1994,13 @@
         }
 
 
-        // Integrasi Web App Google Apps Script untuk halaman yang di-host di GitHub Pages.
+        // Integrasi Web App Google Apps Script. URL disetel di kode agar perangkat baru tidak perlu membaca Admin!B1 lewat CSV.
+        const SCRIPT_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycby9S73SRXjrhdLcoekuaYO2WFJVzoJJOmygexFlGbO0pt7lCz7JjjLqTmbHxKa1Ee48/exec';
         async function fetchSpreadsheetData(showLoader = true) {
             const loader = document.getElementById('loading-overlay');
             if (loader && showLoader) loader.classList.remove('hidden');
-            let endpoint = (adminSettings.scriptUrl || '').trim();
-            // Pada perangkat baru localStorage masih kosong. Ambil URL Web App langsung dari Admin!B1.
-            // Spreadsheet harus dapat dibaca lewat export CSV agar proses bootstrap ini bisa berjalan.
-            if (!endpoint) {
-                try {
-                    const csvUrl = getCsvExportUrl(defaultAdminSettings.spreadsheetUrl, 0);
-                    const response = await fetch(csvUrl, { cache: 'no-store' });
-                    if (!response.ok) throw new Error('Sheet Admin tidak dapat dibaca');
-                    const rows = parseCSV(await response.text());
-                    endpoint = (rows[0] && rows[0][1] ? rows[0][1] : '').trim();
-                    if (!/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec(?:\?.*)?$/.test(endpoint)) {
-                        throw new Error('URL Web App tidak ditemukan di sel Admin!B1. Pastikan B1 berisi URL Deploy dan Spreadsheet dapat dibaca.');
-                    }
-                    adminSettings.scriptUrl = endpoint;
-                } catch (err) {
-                    if (loader) loader.classList.add('hidden');
-                    render();
-                    console.error('Gagal membaca URL dari Admin!B1:', err);
-                    alert('Tidak bisa membaca URL Script dari Admin!B1. Pastikan spreadsheet dapat dibaca dan B1 berisi URL Web App yang benar.');
-                    return;
-                }
-            }
+            const endpoint = SCRIPT_WEB_APP_URL;
+            adminSettings.scriptUrl = endpoint;
             const callbackName = 'sheetCallback_' + Date.now();
             const script = document.createElement('script');
             let finished = false;
@@ -2038,7 +2019,7 @@
                         customSubjectsList = payload.subjects || defaultSubjects;
                         adminSettings = Object.assign({}, defaultAdminSettings, adminSettings, payload.settings || {});
                         if (!adminSettings.teachers) adminSettings.teachers = {};
-                        if (!adminSettings.scriptUrl) adminSettings.scriptUrl = endpoint;
+                        adminSettings.scriptUrl = endpoint;
                         saveLocalOnly();
                     }
                     render();
@@ -2066,7 +2047,8 @@
                 student.gradesByTw[getActiveTw()] = cloneGradeMap(student.grades || {});
             });
             saveLocalOnly();
-            const endpoint = (adminSettings.scriptUrl || '').trim();
+            const endpoint = SCRIPT_WEB_APP_URL;
+            adminSettings.scriptUrl = endpoint;
             if (!syncToBackend || !endpoint) return;
             try {
                 await fetch(endpoint, {
