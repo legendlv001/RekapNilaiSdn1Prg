@@ -144,7 +144,7 @@
                 "Kelas PAI": { name: "", nip: "" }
             },
             spreadsheetUrl: "https://docs.google.com/spreadsheets/d/1dHd8-ixTrO8kjj_ThpKcE5BZX5c5SnVRS2m6PSzpwMg/edit?usp=drivesdk",
-            scriptUrl: ""
+            scriptUrl: "https://script.google.com/macros/s/AKfycby9S73SRXjrhdLcoekuaYO2WFJVzoJJOmygexFlGbO0pt7lCz7JjjLqTmbHxKa1Ee48/exec"
         };
 
         let schoolData = loadAndMigrateData();
@@ -1718,19 +1718,12 @@
             openManageSubjectsModal();
         }
 
-        // GANTI dengan URL Web App hasil Deploy Code.gs yang baru (akhiran /exec).
-        const SCRIPT_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwxMSjrm7M07-0AGa6HaiJjHw6bEbFvAcmNk4cKtHQaxhisjO5IRrSdfLRT5jcvO5hz/exec';
+        const SCRIPT_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzERMBQqxn3Ip68Z4-MiGengma6BCEgOr5bTJuNbos8bYnnV3_SrAEJPyi0Su25FtWh/exec';
         
         async function fetchSpreadsheetData(showLoader = true) {
             const loader = document.getElementById('loading-overlay');
             if (loader && showLoader) loader.classList.remove('hidden');
             const endpoint = SCRIPT_WEB_APP_URL;
-            if (!endpoint || endpoint === 'TEMPEL_URL_WEB_APP_DI_SINI') {
-                if (loader) loader.classList.add('hidden');
-                render();
-                alert('Tempel URL Web App hasil Deploy Code.gs pada konstanta SCRIPT_WEB_APP_URL di index.html.');
-                return;
-            }
             adminSettings.scriptUrl = endpoint;
             const callbackName = 'sheetCallback_' + Date.now();
             const script = document.createElement('script');
@@ -1782,7 +1775,7 @@
             saveLocalOnly();
             const endpoint = SCRIPT_WEB_APP_URL;
             adminSettings.scriptUrl = endpoint;
-            if (!syncToBackend || !endpoint || endpoint === 'https://script.google.com/macros/s/AKfycbzERMBQqxn3Ip68Z4-MiGengma6BCEgOr5bTJuNbos8bYnnV3_SrAEJPyi0Su25FtWh/exec') return;
+            if (!syncToBackend || !endpoint) return;
             try {
                 await fetch(endpoint, {
                     method: 'POST',
