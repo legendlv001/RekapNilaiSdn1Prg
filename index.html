@@ -99,20 +99,32 @@
 
     <script>
         const defaultData = {
-            "Kelas 2": { isSubCategory: false, students: [] },
-            "Kelas 4": { isSubCategory: false, students: [] },
-            "Kelas 5": { isSubCategory: false, students: [] },
-            "Kelas 6": { isSubCategory: false, students: [] },
+            "Kelas 2": {
+                isSubCategory: false,
+                students: []
+            },
+            "Kelas 4": {
+                isSubCategory: false,
+                students: []
+            },
+            "Kelas 5": {
+                isSubCategory: false,
+                students: []
+            },
+            "Kelas 6": {
+                isSubCategory: false,
+                students: []
+            },
             "Kelas PAI": {
                 isSubCategory: true,
                 subjectName: "PAI",
                 subClasses: {
-                    "Kelas PAI Kelas 1": [],
-                    "Kelas PAI Kelas 2": [],
-                    "Kelas PAI Kelas 3": [],
-                    "Kelas PAI Kelas 4": [],
-                    "Kelas PAI Kelas 5": [],
-                    "Kelas PAI Kelas 6": []
+                    "PAI Kelas 1": [],
+                    "PAI Kelas 2": [],
+                    "PAI Kelas 3": [],
+                    "PAI Kelas 4": [],
+                    "PAI Kelas 5": [],
+                    "PAI Kelas 6": []
                 }
             }
         };
@@ -124,9 +136,15 @@
             triwulan: "Triwulan I",
             headmasterName: "",
             headmasterNip: "",
-            teachers: {},
+            teachers: {
+                "Kelas 2": { name: "", nip: "" },
+                "Kelas 4": { name: "", nip: "" },
+                "Kelas 5": { name: "", nip: "" },
+                "Kelas 6": { name: "", nip: "" },
+                "Kelas PAI": { name: "", nip: "" }
+            },
             spreadsheetUrl: "https://docs.google.com/spreadsheets/d/1dHd8-ixTrO8kjj_ThpKcE5BZX5c5SnVRS2m6PSzpwMg/edit?usp=drivesdk",
-            scriptUrl: "https://script.google.com/macros/s/AKfycbxHj2Yo6cHP3WMZu2wQCckL1Q-TH9EyyO2ZIVnAZn19qUZJKNTo3n0B2SkxprWlKEV9/exec"
+            scriptUrl: ""
         };
 
         let schoolData = loadAndMigrateData();
@@ -134,6 +152,8 @@
         let adminSettings = JSON.parse(localStorage.getItem('school_grade_admin_v4')) || defaultAdminSettings;
 
         if (!adminSettings.teachers) adminSettings.teachers = {};
+        if (!adminSettings.spreadsheetUrl) adminSettings.spreadsheetUrl = defaultAdminSettings.spreadsheetUrl;
+        if (!adminSettings.scriptUrl) adminSettings.scriptUrl = '';
 
         let currentView = 'classes'; 
         let selectedClass = null;
@@ -143,6 +163,7 @@
         function loadAndMigrateData() {
             const raw = localStorage.getItem('school_grade_recap_v4');
             if (!raw) return defaultData;
+
             try {
                 const parsed = JSON.parse(raw);
                 Object.keys(parsed).forEach(k => {
@@ -156,7 +177,7 @@
             }
         }
 
-        function saveLocalOnly() {
+        function saveDataLocal() {
             localStorage.setItem('school_grade_recap_v4', JSON.stringify(schoolData));
             localStorage.setItem('school_grade_subjects_v4', JSON.stringify(customSubjectsList));
             localStorage.setItem('school_grade_admin_v4', JSON.stringify(adminSettings));
@@ -167,6 +188,7 @@
             if (el) {
                 el.textContent = `Tahun Ajaran ${adminSettings.academicYear || '2026/2027'} - ${adminSettings.triwulan || 'Triwulan I'}`;
             }
+
             const marqueeEl = document.getElementById('marquee-academic-text');
             if (marqueeEl) {
                 marqueeEl.textContent = `©2026 Rekap Nilai PerTriWulan SDN 1 Parigi ${adminSettings.triwulan || 'Triwulan I'} Tahun Ajaran ${adminSettings.academicYear || '2026/2027'}`;
@@ -202,6 +224,7 @@
                             ${classOptionsHtml}
                         </select>
                     </div>
+
                     <div>
                         <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Triwulan (TW)</label>
                         <select id="print-triwulan" required class="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 text-sm bg-white">
@@ -211,13 +234,20 @@
                             <option value="Triwulan IV" ${adminSettings.triwulan === 'Triwulan IV' ? 'selected' : ''}>Triwulan IV</option>
                         </select>
                     </div>
+
                     <div>
                         <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Tahun Ajaran</label>
-                        <input type="text" id="print-academic-year" required value="${adminSettings.academicYear || '2026/2027'}" class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm">
+                        <input type="text" id="print-academic-year" required value="${adminSettings.academicYear || '2026/2027'}" placeholder="Contoh: 2026/2027" class="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 text-sm">
                     </div>
+
+                    <div class="bg-indigo-50/60 p-3 rounded-xl border border-indigo-100 text-xs text-indigo-700 flex items-center gap-2">
+                        <i class="fa-solid fa-circle-info text-indigo-500 text-sm flex-shrink-0"></i>
+                        <span>Nama/NIP Kepala Sekolah dan Guru disesuaikan otomatis dari Pengaturan Admin.</span>
+                    </div>
+
                     <div class="flex justify-end space-x-2 pt-3 border-t border-slate-100">
-                        <button type="button" onclick="closeModal()" class="px-4 py-2 bg-slate-100 rounded-xl text-sm">Batal</button>
-                        <button type="submit" class="px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm flex items-center gap-2">
+                        <button type="button" onclick="closeModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-medium transition">Batal</button>
+                        <button type="submit" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-medium transition flex items-center gap-2">
                             <i class="fa-solid fa-file-pdf"></i> Download PDF
                         </button>
                     </div>
@@ -230,6 +260,7 @@
             const target = document.getElementById('print-class-select').value;
             const tw = document.getElementById('print-triwulan').value;
             const year = document.getElementById('print-academic-year').value.trim();
+
             if (!target || !year) return;
 
             const [clsName, subClsName] = target.split('||');
@@ -240,11 +271,17 @@
 
             const headmasterName = adminSettings.headmasterName || "-";
             const headmasterNip = adminSettings.headmasterNip ? `NIP. ${adminSettings.headmasterNip}` : "";
+
             const teacherObj = (adminSettings.teachers && adminSettings.teachers[clsName]) || { name: "-", nip: "" };
             const teacherName = teacherObj.name || "-";
             const teacherNip = teacherObj.nip ? `NIP. ${teacherObj.nip}` : "";
 
-            let teacherRoleTitle = isSubCat ? `Guru Mapel ${parentObj.subjectName || "PAI"}` : `Guru ${clsName}`;
+            let teacherRoleTitle = "Guru Kelas";
+            if (isSubCat) {
+                teacherRoleTitle = `Guru Mapel ${parentObj.subjectName || "PAI"}`;
+            } else {
+                teacherRoleTitle = `Guru ${clsName}`;
+            }
 
             if (isSubCat) {
                 const subjectTitle = parentObj.subjectName || "PAI";
@@ -253,6 +290,7 @@
                 const buildClassTableHtml = (subKey, classLabel) => {
                     const stds = getStudentList(clsName, subKey);
                     let rowsHtml = '';
+                    
                     if (stds.length === 0) {
                         rowsHtml = `<tr><td colspan="3" style="border: 1px solid #000; padding: 4px; text-align: center; color: #777; font-style: italic; font-size: 10px;">- Belum Ada Siswa -</td></tr>`;
                     } else {
@@ -269,6 +307,7 @@
                             `;
                         });
                     }
+
                     return `
                         <div style="flex: 1; min-width: 0;">
                             <table style="width: 100%; border-collapse: collapse; font-family: Arial, sans-serif;">
@@ -279,16 +318,27 @@
                                         <th style="border: 1px solid #000; padding: 4px; text-align: center; font-size: 10px; font-weight: bold; width: 65px;">${classLabel}</th>
                                     </tr>
                                 </thead>
-                                <tbody>${rowsHtml}</tbody>
+                                <tbody>
+                                    ${rowsHtml}
+                                </tbody>
                             </table>
                         </div>
                     `;
                 };
 
                 const classRomanLabels = ["KELAS I", "KELAS II", "KELAS III", "KELAS IV", "KELAS V", "KELAS VI"];
-                let row1TablesHtml = '', row2TablesHtml = '';
-                for (let i = 0; i < 3; i++) row1TablesHtml += buildClassTableHtml(subClassKeys[i] || `Kelas PAI Kelas ${i+1}`, classRomanLabels[i]);
-                for (let i = 3; i < 6; i++) row2TablesHtml += buildClassTableHtml(subClassKeys[i] || `Kelas PAI Kelas ${i+1}`, classRomanLabels[i]);
+                let row1TablesHtml = '';
+                let row2TablesHtml = '';
+
+                for (let i = 0; i < 3; i++) {
+                    const key = subClassKeys[i] || `PAI Kelas ${i+1}`;
+                    row1TablesHtml += buildClassTableHtml(key, classRomanLabels[i]);
+                }
+
+                for (let i = 3; i < 6; i++) {
+                    const key = subClassKeys[i] || `PAI Kelas ${i+1}`;
+                    row2TablesHtml += buildClassTableHtml(key, classRomanLabels[i]);
+                }
 
                 printArea.innerHTML = `
                     <div style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 14px;">
@@ -296,8 +346,15 @@
                         <h1 style="font-size: 14px; font-weight: bold; margin: 3px 0 0 0; text-transform: uppercase;">REKAPITULASI NILAI MATA PELAJARAN ${subjectTitle.toUpperCase()} (KELAS I - VI)</h1>
                         <p style="font-size: 11px; margin: 3px 0 0 0; font-weight: 500;"><strong>${tw}</strong> Tahun Ajaran <strong>${year}</strong></p>
                     </div>
-                    <div style="display: flex; gap: 12px; margin-bottom: 12px; align-items: flex-start;">${row1TablesHtml}</div>
-                    <div style="display: flex; gap: 12px; margin-bottom: 20px; align-items: flex-start;">${row2TablesHtml}</div>
+
+                    <div style="display: flex; gap: 12px; margin-bottom: 12px; align-items: flex-start;">
+                        ${row1TablesHtml}
+                    </div>
+
+                    <div style="display: flex; gap: 12px; margin-bottom: 20px; align-items: flex-start;">
+                        ${row2TablesHtml}
+                    </div>
+
                     <div style="display: flex; justify-content: space-between; font-size: 11px; margin-top: 25px; page-break-inside: avoid;">
                         <div style="text-align: center; width: 35%;">
                             <p style="margin-bottom: 45px;">Mengetahui,<br>Kepala Sekolah</p>
@@ -312,49 +369,106 @@
                     </div>
                 `;
 
+                const opt = {
+                    margin:       [0.3, 0.3, 0.3, 0.3],
+                    filename:     `Rekap_Nilai_${clsName.replace(/\s+/g, '_')}_Semua_Kelas_${tw.replace(/\s+/g, '_')}_${year.replace(/\//g, '-')}.pdf`,
+                    image:        { type: 'jpeg', quality: 0.98 },
+                    html2canvas:  { scale: 2, logging: false },
+                    jsPDF:        { unit: 'mm', format: [215, 330], orientation: 'landscape' }
+                };
+
                 closeModal();
-                html2pdf().set({ margin: [0.3, 0.3, 0.3, 0.3], filename: `Rekap_${clsName}_${tw}.pdf`, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: [215, 330], orientation: 'landscape' } }).from(printArea).save();
+                html2pdf().set(opt).from(printArea).save();
                 return;
             }
 
             let students = (parentObj && parentObj.students) ? parentObj.students : [];
+            let displayTitle = clsName;
+
             let allSubjects = new Set();
-            students.forEach(s => Object.keys(gradesForTw(s, tw) || {}).forEach(sub => allSubjects.add(sub)));
+            students.forEach(s => {
+                const gMap = gradesForTw(s, tw);
+                Object.keys(gMap || {}).forEach(sub => allSubjects.add(sub));
+            });
             const subjectsList = Array.from(allSubjects);
 
-            let tableHeadersHtml = `<th style="border: 1px solid #333; padding: 6px; background-color: #f1f5f9; text-align: center; width: 40px;">No</th><th style="border: 1px solid #333; padding: 6px; background-color: #f1f5f9; text-align: left;">Nama Siswa</th><th style="border: 1px solid #333; padding: 6px; background-color: #f1f5f9; text-align: center; width: 80px;">Kelas</th>`;
-            subjectsList.forEach(sub => tableHeadersHtml += `<th style="border: 1px solid #333; padding: 6px; background-color: #f1f5f9; text-align: center;">${sub}</th>`);
+            let tableHeadersHtml = `<th style="border: 1px solid #333; padding: 6px; background-color: #f1f5f9; text-align: center; width: 40px;">No</th>`;
+            tableHeadersHtml += `<th style="border: 1px solid #333; padding: 6px; background-color: #f1f5f9; text-align: left;">Nama Siswa</th>`;
+            tableHeadersHtml += `<th style="border: 1px solid #333; padding: 6px; background-color: #f1f5f9; text-align: center; width: 80px;">Kelas</th>`;
+
+            subjectsList.forEach(sub => {
+                tableHeadersHtml += `<th style="border: 1px solid #333; padding: 6px; background-color: #f1f5f9; text-align: center;">${sub}<br><span style="font-size: 9px; font-weight: normal;">(Rata-rata)</span></th>`;
+            });
 
             let tableRowsHtml = '';
-            students.forEach((s, idx) => {
-                const sGrades = gradesForTw(s, tw);
-                tableRowsHtml += `<tr><td style="border: 1px solid #333; padding: 6px; text-align: center;">${idx + 1}</td><td style="border: 1px solid #333; padding: 6px; font-weight: bold;">${s.name}</td><td style="border: 1px solid #333; padding: 6px; text-align: center;">${clsName}</td>`;
-                subjectsList.forEach(sub => {
-                    const arr = sGrades[sub] || [];
-                    tableRowsHtml += `<td style="border: 1px solid #333; padding: 6px; text-align: center; font-weight: bold;">${arr.length ? getAverage(arr) : '-'}</td>`;
+            if (students.length === 0) {
+                const totalCols = 3 + subjectsList.length;
+                tableRowsHtml = `<tr><td colspan="${totalCols}" style="border: 1px solid #333; padding: 12px; text-align: center; color: #666;">Tidak ada data siswa.</td></tr>`;
+            } else {
+                students.forEach((s, idx) => {
+                    const studentGrades = gradesForTw(s, tw);
+                    tableRowsHtml += `<tr>`;
+                    tableRowsHtml += `<td style="border: 1px solid #333; padding: 6px; text-align: center;">${idx + 1}</td>`;
+                    tableRowsHtml += `<td style="border: 1px solid #333; padding: 6px; font-weight: bold;">${s.name}</td>`;
+                    tableRowsHtml += `<td style="border: 1px solid #333; padding: 6px; text-align: center;">${displayTitle}</td>`;
+
+                    subjectsList.forEach(sub => {
+                        const gradesArr = studentGrades[sub] || [];
+                        const avg = getAverage(gradesArr);
+                        const hasGrades = gradesArr.length > 0;
+                        tableRowsHtml += `<td style="border: 1px solid #333; padding: 6px; text-align: center; font-weight: bold;">${hasGrades ? avg : '-'}</td>`;
+                    });
+
+                    tableRowsHtml += `</tr>`;
                 });
-                tableRowsHtml += `</tr>`;
-            });
+            }
 
             printArea.innerHTML = `
                 <div style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 16px;">
                     <h2 style="font-size: 18px; font-weight: bold; margin: 0; text-transform: uppercase;">SD NEGERI 1 PARIGI</h2>
                     <h1 style="font-size: 16px; font-weight: bold; margin: 4px 0 0 0; text-transform: uppercase;">REKAPITULASI NILAI RATA-RATA SISWA</h1>
-                    <p style="font-size: 12px; margin: 4px 0 0 0;">Kelas: <strong>${clsName}</strong> | <strong>${tw}</strong> Tahun Ajaran <strong>${year}</strong></p>
+                    <p style="font-size: 12px; margin: 4px 0 0 0; font-weight: 500;">Kelas: <strong>${displayTitle}</strong> | <strong>${tw}</strong> Tahun Ajaran <strong>${year}</strong></p>
                 </div>
+
                 <table style="width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 24px;">
-                    <thead><tr>${tableHeadersHtml}</tr></thead>
-                    <tbody>${tableRowsHtml}</tbody>
+                    <thead>
+                        <tr>${tableHeadersHtml}</tr>
+                    </thead>
+                    <tbody>
+                        ${tableRowsHtml}
+                    </tbody>
                 </table>
+
+                <div style="display: flex; justify-content: space-between; font-size: 11px; margin-top: 35px; page-break-inside: avoid;">
+                    <div style="text-align: center; width: 35%;">
+                        <p style="margin-bottom: 50px;">Mengetahui,<br>Kepala Sekolah</p>
+                        <p style="font-weight: bold; text-decoration: underline; margin: 0;">${headmasterName}</p>
+                        <p style="margin: 2px 0 0 0;">${headmasterNip}</p>
+                    </div>
+                    <div style="text-align: center; width: 35%;">
+                        <p style="margin-bottom: 50px;">Daha Selatan, ${todayDate}<br>${teacherRoleTitle}</p>
+                        <p style="font-weight: bold; text-decoration: underline; margin: 0;">${teacherName}</p>
+                        <p style="margin: 2px 0 0 0;">${teacherNip}</p>
+                    </div>
+                </div>
             `;
 
+            const opt = {
+                margin:       [0.4, 0.4, 0.4, 0.4],
+                filename:     `Rekap_Nilai_${displayTitle.replace(/\s+/g, '_')}_${tw.replace(/\s+/g, '_')}_${year.replace(/\//g, '-')}.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, logging: false },
+                jsPDF:        { unit: 'mm', format: [215, 330], orientation: 'landscape' }
+            };
+
             closeModal();
-            html2pdf().set({ margin: [0.4, 0.4, 0.4, 0.4], filename: `Rekap_${clsName}_${tw}.pdf`, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: [215, 330], orientation: 'landscape' } }).from(printArea).save();
+            html2pdf().set(opt).from(printArea).save();
         }
 
         function getAverage(arr) {
             if (!arr || arr.length === 0) return 0;
-            return (arr.reduce((a, b) => a + b, 0) / arr.length).toFixed(1);
+            const sum = arr.reduce((a, b) => a + b, 0);
+            return (sum / arr.length).toFixed(1);
         }
 
         function render() {
@@ -366,11 +480,21 @@
                 navContainer.innerHTML = '';
                 container.innerHTML = renderClassesView();
             } else if (currentView === 'pai_subclasses') {
-                navContainer.innerHTML = `<button onclick="switchView('classes')" class="bg-indigo-700 text-white px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition shadow flex items-center gap-1.5"><i class="fa-solid fa-arrow-left"></i> Kembali</button>`;
+                navContainer.innerHTML = `
+                    <button onclick="switchView('classes')" class="bg-indigo-700 hover:bg-indigo-800 text-white px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition shadow flex items-center gap-1.5">
+                        <i class="fa-solid fa-arrow-left"></i> Kembali
+                    </button>
+                `;
                 container.innerHTML = renderSubClassesView(selectedClass);
             } else if (currentView === 'detail') {
                 const isSubCat = schoolData[selectedClass] && schoolData[selectedClass].isSubCategory;
-                navContainer.innerHTML = `<button onclick="switchView('${isSubCat ? 'pai_subclasses' : 'classes'}'${isSubCat ? ", '" + selectedClass + "'" : ''})" class="bg-indigo-700 text-white px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition shadow flex items-center gap-1.5"><i class="fa-solid fa-arrow-left"></i> Kembali</button>`;
+                const backTarget = isSubCat ? 'pai_subclasses' : 'classes';
+                const backParent = isSubCat ? String(selectedClass || '').replace(/'/g, "\\'") : '';
+                navContainer.innerHTML = `
+                    <button onclick="switchView('${backTarget}'${isSubCat ? ", '" + backParent + "'" : ''})" class="bg-indigo-700 hover:bg-indigo-800 text-white px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition shadow flex items-center gap-1.5">
+                        <i class="fa-solid fa-arrow-left"></i> Kembali
+                    </button>
+                `;
                 container.innerHTML = renderClassDetailView(selectedClass, selectedSubClass);
             }
         }
@@ -388,41 +512,161 @@
             const regularClasses = classesList.filter(cls => !schoolData[cls]?.isSubCategory);
             const subjectClasses = classesList.filter(cls => schoolData[cls]?.isSubCategory);
 
-            let html = `<div class="space-y-6"><div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100"><h2 class="text-xl font-bold text-slate-800">Daftar Kelas</h2><p class="text-slate-500 text-sm mt-1">Pilih salah satu kelas di bawah untuk melihat rincian siswa dan nilai.</p></div><div><h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 px-1"><i class="fa-solid fa-school mr-1.5 text-indigo-500"></i> Kelas Utama</h3><div class="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">`;
+            let html = `
+                <div class="space-y-6">
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                        <h2 class="text-xl font-bold text-slate-800">Daftar Kelas</h2>
+                        <p class="text-slate-500 text-sm mt-1">Pilih salah satu kelas di bawah untuk melihat rincian siswa dan nilai.</p>
+                    </div>
+
+                    <div>
+                        <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 px-1">
+                            <i class="fa-solid fa-school mr-1.5 text-indigo-500"></i> Kelas Utama
+                        </h3>
+                        <div class="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+            `;
 
             regularClasses.forEach(cls => {
-                const students = (schoolData[cls] && schoolData[cls].students) ? schoolData[cls].students : [];
-                html += `<div onclick="switchView('detail', '${cls}')" class="bg-white p-3.5 sm:p-5 rounded-2xl shadow-sm border border-slate-200/80 hover:border-indigo-500 hover:shadow-md transition cursor-pointer flex items-center justify-between group"><div class="flex items-center space-x-3"><div class="w-10 h-10 bg-indigo-50 group-hover:bg-indigo-600 text-indigo-600 group-hover:text-white rounded-xl flex items-center justify-center font-bold"><i class="fa-solid fa-school"></i></div><div><h3 class="text-sm sm:text-base font-bold text-slate-800">${cls}</h3><p class="text-slate-500 text-xs">${students.length} Siswa</p></div></div><i class="fa-solid fa-chevron-right text-xs text-slate-400"></i></div>`;
+                const escapedCls = cls.replace(/'/g, "\\'");
+                const clsObj = schoolData[cls];
+                const students = (clsObj && clsObj.students) ? clsObj.students : [];
+                const totalInfo = `${students.length} Siswa`;
+
+                html += `
+                    <div onclick="handleClassClick('${escapedCls}')" class="bg-white p-3.5 sm:p-5 rounded-2xl shadow-sm border border-slate-200/80 hover:border-indigo-500 hover:shadow-md transition cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-2 group">
+                        <div class="flex items-center space-x-2.5 sm:space-x-3.5">
+                            <div class="w-10 h-10 sm:w-12 sm:h-12 bg-indigo-50 group-hover:bg-indigo-600 text-indigo-600 group-hover:text-white rounded-xl sm:rounded-2xl flex items-center justify-center font-bold text-base sm:text-lg transition-colors flex-shrink-0">
+                                <i class="fa-solid fa-school"></i>
+                            </div>
+                            <div class="min-w-0">
+                                <h3 class="text-sm sm:text-base font-bold text-slate-800 group-hover:text-indigo-600 transition-colors truncate">${cls}</h3>
+                                <p class="text-slate-500 text-[11px] sm:text-xs mt-0.5 truncate"><i class="fa-solid fa-users mr-1 text-slate-400"></i> ${totalInfo}</p>
+                            </div>
+                        </div>
+                        <div class="hidden sm:flex w-8 h-8 rounded-full bg-slate-50 group-hover:bg-indigo-50 items-center justify-center text-slate-400 group-hover:text-indigo-600 transition flex-shrink-0">
+                            <i class="fa-solid fa-chevron-right text-xs"></i>
+                        </div>
+                    </div>
+                `;
             });
 
-            html += `</div></div>`;
+            html += `
+                        </div>
+                    </div>
+            `;
 
             if (subjectClasses.length > 0) {
-                html += `<div class="pt-2"><h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 px-1"><i class="fa-solid fa-book-quran mr-1.5 text-emerald-500"></i> Kelompok Kelas Mata Pelajaran</h3><div class="grid grid-cols-1 gap-3">`;
+                html += `
+                    <div class="pt-2">
+                        <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 px-1">
+                            <i class="fa-solid fa-book-quran mr-1.5 text-emerald-500"></i> Kelompok Kelas Mata Pelajaran
+                        </h3>
+                        <div class="grid grid-cols-1 gap-3">
+                `;
+
                 subjectClasses.forEach(cls => {
-                    const subCount = Object.keys(schoolData[cls].subClasses || {}).length;
-                    html += `<div onclick="switchView('pai_subclasses', '${cls}')" class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 hover:border-emerald-500 hover:shadow-md transition cursor-pointer flex items-center justify-between group"><div class="flex items-center space-x-3.5"><div class="w-12 h-12 bg-emerald-50 group-hover:bg-emerald-600 text-emerald-600 group-hover:text-white rounded-2xl flex items-center justify-center font-bold"><i class="fa-solid fa-book-quran"></i></div><div><h3 class="text-base font-bold text-slate-800">${cls}</h3><p class="text-slate-500 text-xs">Mencakup ${subCount} Tingkat Kelas</p></div></div><i class="fa-solid fa-chevron-right text-xs text-slate-400"></i></div>`;
+                    const escapedCls = cls.replace(/'/g, "\\'");
+                    const clsObj = schoolData[cls];
+                    const subCount = Object.keys(clsObj.subClasses || {}).length;
+                    const totalInfo = `Mencakup ${subCount} Tingkat Kelas (${clsObj.subjectName || 'Khusus'})`;
+
+                    html += `
+                        <div onclick="handleClassClick('${escapedCls}')" class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 hover:border-emerald-500 hover:shadow-md transition cursor-pointer flex items-center justify-between group">
+                            <div class="flex items-center space-x-3.5">
+                                <div class="w-12 h-12 bg-emerald-50 group-hover:bg-emerald-600 text-emerald-600 group-hover:text-white rounded-2xl flex items-center justify-center font-bold text-lg transition-colors">
+                                    <i class="fa-solid ${getClassMapelIcon(clsObj.subjectName || cls)}"></i>
+                                </div>
+                                <div>
+                                    <h3 class="text-base font-bold text-slate-800 group-hover:text-emerald-600 transition-colors">${cls}</h3>
+                                    <p class="text-slate-500 text-xs mt-0.5"><i class="fa-solid fa-layer-group mr-1 text-slate-400"></i> ${totalInfo}</p>
+                                </div>
+                            </div>
+                            <div class="w-8 h-8 rounded-full bg-slate-50 group-hover:bg-emerald-50 flex items-center justify-center text-slate-400 group-hover:text-emerald-600 transition">
+                                <i class="fa-solid fa-chevron-right text-xs"></i>
+                            </div>
+                        </div>
+                    `;
                 });
-                html += `</div></div>`;
+
+                html += `
+                        </div>
+                    </div>
+                `;
             }
-            return html + `</div>`;
+
+            html += `</div>`;
+            return html;
+        }
+
+        function handleClassClick(clsName) {
+            const clsObj = schoolData[clsName];
+            if (clsObj && clsObj.isSubCategory) {
+                switchView('pai_subclasses', clsName);
+            } else {
+                switchView('detail', clsName, null);
+            }
+        }
+
+        function getClassMapelIcon(name) {
+            const label = String(name || '').toLowerCase();
+            if (label.includes('pai') || label.includes('quran') || label.includes('agama')) return 'fa-book-quran';
+            if (label.includes('matematika') || label.includes('math')) return 'fa-calculator';
+            if (label.includes('ipa') || label.includes('sains')) return 'fa-flask';
+            if (label.includes('pjok') || label.includes('olahraga')) return 'fa-futbol';
+            if (label.includes('seni')) return 'fa-palette';
+            if (label.includes('bahasa') || label.includes('literasi')) return 'fa-book-open';
+            if (label.includes('komputer') || label.includes('tik')) return 'fa-computer';
+            return 'fa-book';
         }
 
         function renderSubClassesView(parentClsName) {
             const parentObj = schoolData[parentClsName];
             if (!parentObj || !parentObj.subClasses) return '';
-            let html = `<div class="space-y-6"><div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100"><span class="bg-indigo-50 text-indigo-700 text-xs font-semibold px-2.5 py-1 rounded-md uppercase">Kelas Berbasis Mapel</span><h2 class="text-2xl font-bold text-slate-800 mt-1">${parentClsName}</h2></div><div class="grid grid-cols-1 sm:grid-cols-2 gap-4">`;
-            
-            Object.keys(parentObj.subClasses).forEach(subName => {
+
+            const subClasses = parentObj.subClasses;
+            const subClassNames = Object.keys(subClasses);
+            const escapedParent = parentClsName.replace(/'/g, "\\'");
+
+            let html = `
+                <div class="space-y-6">
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                        <span class="bg-indigo-50 text-indigo-700 text-xs font-semibold px-2.5 py-1 rounded-md uppercase tracking-wide">Kelas Berbasis Mapel</span>
+                        <h2 class="text-2xl font-bold text-slate-800 mt-1">${parentClsName}</h2>
+                        <p class="text-slate-500 text-sm mt-0.5">Pilih sub-kelas di bawah ini.</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            `;
+
+            subClassNames.forEach(subName => {
                 const students = getStudentList(parentClsName, subName);
-                html += `<div onclick="switchView('detail', '${parentClsName}', '${subName}')" class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 hover:border-indigo-500 transition cursor-pointer flex items-center justify-between group"><div class="flex items-center space-x-4"><div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center font-bold"><i class="fa-solid fa-book"></i></div><div><h3 class="text-base font-bold text-slate-800">${subName}</h3><p class="text-slate-500 text-xs">${students.length} Siswa</p></div></div><i class="fa-solid fa-chevron-right text-xs text-slate-400"></i></div>`;
+                const escapedSub = subName.replace(/'/g, "\\'");
+
+                html += `
+                    <div onclick="switchView('detail', '${escapedParent}', '${escapedSub}')" class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80 hover:border-indigo-500 hover:shadow-md transition cursor-pointer flex items-center justify-between group">
+                        <div class="flex items-center space-x-4">
+                            <div class="w-12 h-12 bg-emerald-50 group-hover:bg-emerald-600 text-emerald-600 group-hover:text-white rounded-xl flex items-center justify-center font-bold text-lg transition-colors">
+                                <i class="fa-solid ${getClassMapelIcon(parentObj.subjectName || subName)}"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-base font-bold text-slate-800 group-hover:text-emerald-600 transition-colors">${subName}</h3>
+                                <p class="text-slate-500 text-xs mt-0.5">${students.length} Siswa</p>
+                            </div>
+                        </div>
+                        <div class="w-8 h-8 rounded-full bg-slate-50 group-hover:bg-emerald-50 flex items-center justify-center text-slate-400 group-hover:text-emerald-600 transition">
+                            <i class="fa-solid fa-chevron-right text-xs"></i>
+                        </div>
+                    </div>
+                `;
             });
-            return html + `</div></div>`;
+
+            html += `</div></div>`;
+            return html;
         }
 
         const ALL_TRIWULAN = ['Triwulan I', 'Triwulan II', 'Triwulan III', 'Triwulan IV'];
-        function getActiveTw() { return adminSettings.triwulan || 'Triwulan I'; }
 
+        function getActiveTw() { return adminSettings.triwulan || 'Triwulan I'; }
         function cloneGradeMap(map) {
             const out = {};
             Object.keys(map || {}).forEach(subject => {
@@ -431,20 +675,44 @@
             });
             return out;
         }
-
+        function eachUniqueStudent(callback) {
+            const seen = new Set();
+            Object.values(schoolData || {}).forEach(obj => {
+                const lists = obj && obj.isSubCategory ? Object.values(obj.subClasses || {}) : [obj && obj.students || []];
+                lists.forEach(list => (list || []).forEach(student => {
+                    const key = student.id || student.name;
+                    if (!seen.has(key)) { seen.add(key); callback(student); }
+                }));
+            });
+        }
+        function ensureStudentTwData(student) {
+            if (!student.gradesByTw || typeof student.gradesByTw !== 'object') student.gradesByTw = {};
+            const tw = getActiveTw();
+            if (!student.gradesByTw[tw]) student.gradesByTw[tw] = cloneGradeMap(student.grades || {});
+            student.grades = cloneGradeMap(student.gradesByTw[tw]);
+            return student.gradesByTw;
+        }
+        function switchStudentsToTw(tw, oldTw) {
+            eachUniqueStudent(student => {
+                if (!student.gradesByTw) student.gradesByTw = {};
+                if (oldTw && !student.gradesByTw[oldTw]) student.gradesByTw[oldTw] = cloneGradeMap(student.grades || {});
+                else if (oldTw && oldTw === getActiveTw()) student.gradesByTw[oldTw] = cloneGradeMap(student.grades || {});
+                student.grades = cloneGradeMap(student.gradesByTw[tw] || {});
+                student.gradesByTw[tw] = cloneGradeMap(student.grades);
+            });
+        }
         function gradesForTw(student, tw) {
             if (!student) return {};
             if (student.gradesByTw && student.gradesByTw[tw]) return student.gradesByTw[tw];
             return tw === getActiveTw() ? (student.grades || {}) : {};
         }
-
         function addGradeForActiveTw(student, subject, value) {
             const tw = getActiveTw();
-            if (!student.gradesByTw) student.gradesByTw = {};
-            if (!student.gradesByTw[tw]) student.gradesByTw[tw] = {};
+            ensureStudentTwData(student);
+            if (!student.grades[subject]) student.grades[subject] = [];
+            student.grades[subject].push(value);
             if (!student.gradesByTw[tw][subject]) student.gradesByTw[tw][subject] = [];
             student.gradesByTw[tw][subject].push(value);
-            student.grades = cloneGradeMap(student.gradesByTw[tw]);
         }
 
         function renderTwRecap(students, subjectsList, clsName, subClsName) {
@@ -454,11 +722,17 @@
                 const grades = gradesForTw(student, tw);
                 const cells = subjectsList.map(subject => {
                     const vals = grades[subject] || [];
-                    return `<td class="px-3 py-2 text-center border-b border-slate-100">${vals.length ? `<span class="font-bold text-indigo-700">${getAverage(vals)}</span>` : '<span class="text-slate-300">-</span>'}</td>`;
+                    return `<td class="px-3 py-2 text-center border-b border-slate-100">${vals.length ? `<span class="font-bold text-indigo-700">${getAverage(vals)}</span><span class="block text-[10px] text-slate-400">${vals.length} nilai</span>` : '<span class="text-slate-300">-</span>'}</td>`;
                 }).join('');
-                return `<tr><td class="px-3 py-2 border-b text-slate-500">${idx + 1}</td><td class="px-3 py-2 border-b font-medium">${student.name || ''}</td>${cells}</tr>`;
+                return `<tr><td class="px-3 py-2 border-b border-slate-100 text-slate-500">${idx + 1}</td><td class="px-3 py-2 border-b border-slate-100 font-medium text-slate-700">${student.name || ''}</td>${cells}</tr>`;
             }).join('');
-            return `<div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-5"><div class="p-4 flex items-center justify-between bg-indigo-50/60 border-b"><h3 class="font-bold text-slate-800">Rekap Nilai per TW</h3><label class="text-xs font-semibold">Pilih TW<select onchange="selectedRecapTw=this.value; render()" class="ml-2 border rounded px-2 py-1">${options}</select></label></div><div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead><tr class="bg-slate-50 text-xs text-slate-500 uppercase"><th class="px-3 py-2">No</th><th class="px-3 py-2">Nama</th>${subjectsList.map(sub => `<th class="px-3 py-2 text-center">${sub}</th>`).join('')}</tr></thead><tbody>${rows || `<tr><td colspan="3" class="p-4 text-center text-slate-400">Belum ada siswa</td></tr>`}</tbody></table></div></div>`;
+            return `<div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-5">
+                <div class="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-indigo-50/60 border-b border-indigo-100">
+                    <div><h3 class="font-bold text-slate-800"><i class="fa-solid fa-chart-column text-indigo-600 mr-2"></i>Rekap Nilai per TW</h3><p class="text-xs text-slate-500 mt-1">Rata-rata setiap mata pelajaran untuk triwulan yang dipilih.</p></div>
+                    <label class="flex items-center gap-2 text-xs font-semibold text-slate-600">Pilih TW<select onchange="selectedRecapTw=this.value; render()" class="border border-slate-200 rounded-lg bg-white px-3 py-2 text-sm">${options}</select></label>
+                </div>
+                <div class="overflow-x-auto"><table class="w-full text-left border-collapse text-sm"><thead><tr class="bg-slate-50 text-xs text-slate-500 uppercase"><th class="px-3 py-2">No</th><th class="px-3 py-2">Nama Siswa</th>${subjectsList.map(sub => `<th class="px-3 py-2 text-center">${sub}</th>`).join('')}</tr></thead><tbody>${rows || `<tr><td colspan="${subjectsList.length + 2}" class="p-5 text-center text-slate-400">Belum ada siswa.</td></tr>`}</tbody></table></div>
+            </div>`;
         }
 
         function renderClassDetailView(clsName, subClsName = null) {
@@ -470,55 +744,162 @@
 
             if (isSubCat && subClsName) {
                 students = getStudentList(clsName, subClsName);
-                displayTitle = subClsName;
+                displayTitle = `${subClsName}`;
             } else {
                 students = (parentObj && parentObj.students) ? parentObj.students : [];
             }
 
             let allSubjects = new Set();
             if (!isSubCat) {
-                customSubjectsList.forEach(sub => allSubjects.add(sub));
-                students.forEach(s => Object.keys(gradesForTw(s, getActiveTw()) || {}).forEach(sub => allSubjects.add(sub)));
+                // Di kelas biasa, pastikan mata pelajaran khusus PAI TIDAK dimunculkan/ditampilkan
+                const excludedSubjects = new Set(['pai', 'pendidikan agama islam']);
+                customSubjectsList.forEach(sub => {
+                    if (!excludedSubjects.has(sub.toLowerCase())) {
+                        allSubjects.add(sub);
+                    }
+                });
+                students.forEach(s => {
+                    const studentGrades = gradesForTw(s, getActiveTw());
+                    Object.keys(studentGrades || {}).forEach(sub => {
+                        if (!excludedSubjects.has(sub.toLowerCase())) {
+                            allSubjects.add(sub);
+                        }
+                    });
+                });
             } else {
                 allSubjects.add(fixedSubject);
             }
             const subjectsList = Array.from(allSubjects);
             if (!selectedRecapTw) selectedRecapTw = getActiveTw();
 
-            let html = `<div class="space-y-6"><div class="bg-white p-6 rounded-2xl shadow-sm border"><h2 class="text-2xl font-bold text-slate-800">${displayTitle}</h2><p class="text-slate-500 text-sm">Daftar siswa dan nilai.</p></div>`;
-            html += renderTwRecap(students, subjectsList, clsName, subClsName);
+            const escapedClsName = clsName.replace(/'/g, "\\'");
+            const escapedSubClsName = subClsName ? subClsName.replace(/'/g, "\\'") : '';
+
+            let html = `
+                <div class="space-y-6">
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <div>
+                            <span class="bg-indigo-50 text-indigo-700 text-xs font-semibold px-2.5 py-1 rounded-md uppercase tracking-wide">Rekap Nilai</span>
+                            <h2 class="text-2xl font-bold text-slate-800 mt-1">${displayTitle}</h2>
+                            <p class="text-slate-500 text-sm">Daftar siswa beserta rata-rata nilai per mata pelajaran.</p>
+                        </div>
+                    </div>
+            `;
+
+            html += `<div class="px-1"><h3 class="text-lg font-bold text-slate-800 mb-3">Daftar siswa</h3>${renderTwRecap(students, subjectsList, clsName, subClsName)}</div>`;
 
             if (students.length === 0) {
-                html += `<div class="bg-white rounded-2xl p-12 text-center border"><h3 class="text-lg font-bold text-slate-700">Belum ada siswa</h3></div>`;
+                html += `
+                    <div class="bg-white rounded-2xl p-12 text-center border border-slate-200">
+                        <div class="w-16 h-16 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
+                            <i class="fa-solid fa-folder-open"></i>
+                        </div>
+                        <h3 class="text-lg font-bold text-slate-700">Belum ada siswa di kelas ini</h3>
+                        <p class="text-slate-500 text-sm mt-1">Gunakan menu Pengaturan di pojok kanan atas untuk menambahkan siswa.</p>
+                    </div>
+                `;
             } else {
-                html += `<div class="bg-white rounded-2xl shadow-sm border overflow-hidden"><div class="overflow-x-auto"><table class="w-full text-left"><thead><tr class="bg-slate-50 text-xs font-semibold uppercase border-b"><th class="p-4">Nama Siswa</th>`;
-                subjectsList.forEach(sub => html += `<th class="p-4 text-center">${sub}</th>`);
-                html += `<th class="p-4 text-center">Aksi</th></tr></thead><tbody class="divide-y text-sm">`;
+                html += `
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr class="bg-slate-50 text-slate-600 text-xs font-semibold uppercase tracking-wider border-b border-slate-200">
+                                        <th class="p-4">Nama Siswa</th>
+                `;
+
+                subjectsList.forEach(sub => {
+                    html += `<th class="p-4 text-center">${sub} <span class="block text-[10px] text-slate-400 font-normal lowercase">(Rata-rata)</span></th>`;
+                });
+
+                html += `
+                                        <th class="p-4 text-center">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 text-sm">
+                `;
 
                 students.forEach(student => {
-                    const sGrades = gradesForTw(student, getActiveTw());
-                    html += `<tr class="hover:bg-slate-50"><td class="p-4 font-semibold">${student.name}</td>`;
+                    const escapedStudentId = String(student.id || student.name).replace(/'/g, "\\'");
+                    const studentGrades = gradesForTw(student, getActiveTw());
+                    html += `
+                        <tr class="hover:bg-slate-50/80 transition">
+                            <td class="p-4 font-semibold text-slate-800">
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-9 h-9 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-xs">
+                                        ${student.name.charAt(0)}
+                                    </div>
+                                    <span>${student.name}</span>
+                                </div>
+                            </td>
+                    `;
+
                     subjectsList.forEach(sub => {
-                        const arr = sGrades[sub] || [];
-                        html += `<td class="p-4 text-center">${arr.length ? getAverage(arr) : '-'}</td>`;
+                        const gradesArr = studentGrades[sub] || [];
+                        const avg = getAverage(gradesArr);
+                        const hasGrades = gradesArr.length > 0;
+                        
+                        html += `
+                            <td class="p-4 text-center">
+                                <div class="inline-flex flex-col items-center">
+                                    <span class="font-bold ${hasGrades ? 'text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg' : 'text-slate-400'}">
+                                        ${hasGrades ? avg : '-'}
+                                    </span>
+                                    <span class="text-[11px] text-slate-400 mt-0.5">
+                                        ${hasGrades ? '(' + gradesArr.length + ' nilai)' : 'Belum ada'}
+                                    </span>
+                                </div>
+                            </td>
+                        `;
                     });
-                    html += `<td class="p-4 text-center"><button onclick="openAddGradeModal('${clsName}', '${subClsName || ''}', '${student.id}')" class="p-2 bg-emerald-50 text-emerald-600 rounded-xl"><i class="fa-solid fa-plus-circle"></i></button></td></tr>`;
+
+                    html += `
+                            <td class="p-4 text-center">
+                                <div class="flex items-center justify-center space-x-1.5">
+                                    <button onclick="openAddGradeModal('${escapedClsName}', '${escapedSubClsName}', '${escapedStudentId}')" title="Tambah Nilai Mapel" class="p-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-xl transition">
+                                        <i class="fa-solid fa-plus-circle"></i>
+                                    </button>
+                                    <button onclick="openDetailStudentModal('${escapedClsName}', '${escapedSubClsName}', '${escapedStudentId}')" title="Kelola / Lihat Detail Nilai" class="p-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-xl transition">
+                                        <i class="fa-solid fa-pen-to-square"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
                 });
+
                 html += `</tbody></table></div></div>`;
             }
-            return html + `</div>`;
+
+            html += `</div>`;
+            return html;
         }
 
-        function showModal(html) {
-            document.getElementById('modal-content').innerHTML = html;
-            document.getElementById('custom-modal').classList.remove('hidden');
+        function showModal(contentHtml) {
+            const modal = document.getElementById('custom-modal');
+            const content = document.getElementById('modal-content');
+            content.innerHTML = contentHtml;
+            modal.classList.remove('hidden');
         }
-        function closeModal() { document.getElementById('custom-modal').classList.add('hidden'); }
+
+        function closeModal() {
+            const modal = document.getElementById('custom-modal');
+            modal.classList.add('hidden');
+        }
 
         function getStudentList(clsName, subClsName) {
             const parent = schoolData[clsName];
             if (!parent) return [];
-            if (parent.isSubCategory && subClsName) return parent.subClasses[subClsName] || [];
+            if (parent.isSubCategory && subClsName) {
+                const match = String(subClsName).match(/(?:kelas|class)\s*(\d+)/i) || String(subClsName).match(/(\d+)\s*$/i);
+                if (match) {
+                    const n = match[1];
+                    const regularKey = Object.keys(schoolData).find(k => !schoolData[k]?.isSubCategory && new RegExp('(?:kelas|class)\\s*' + n + '$', 'i').test(k.trim()));
+                    if (regularKey) return schoolData[regularKey].students || [];
+                }
+                if (!parent.subClasses[subClsName]) parent.subClasses[subClsName] = [];
+                return parent.subClasses[subClsName];
+            }
             return parent.students || [];
         }
 
@@ -530,27 +911,87 @@
             const isSubCat = parentObj && parentObj.isSubCategory;
             const fixedSubject = isSubCat ? (parentObj.subjectName || "PAI") : null;
 
-            let subjectInputHtml = isSubCat ? 
-                `<div><label class="block text-xs font-semibold uppercase mb-1">Mata Pelajaran</label><input type="text" id="grade-subject" readonly value="${fixedSubject}" class="w-full px-4 py-2.5 rounded-xl border bg-slate-100 text-sm"></div>` :
-                `<div><label class="block text-xs font-semibold uppercase mb-1">Mata Pelajaran</label><select id="grade-subject" class="w-full px-4 py-2.5 rounded-xl border bg-white text-sm">${customSubjectsList.map(s => `<option value="${s}">${s}</option>`).join('')}</select></div>`;
+            let subjectInputHtml = '';
+            if (isSubCat) {
+                subjectInputHtml = `
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Mata Pelajaran</label>
+                        <input type="text" id="grade-subject" readonly value="${fixedSubject}" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-100 text-slate-700 font-semibold text-sm">
+                    </div>
+                `;
+            } else {
+                let allSubjects = new Set();
+                const excludedSubjects = new Set(['pai', 'pendidikan agama islam']);
+                customSubjectsList.forEach(sub => {
+                    if (!excludedSubjects.has(sub.toLowerCase())) {
+                        allSubjects.add(sub);
+                    }
+                });
+                students.forEach(s => {
+                    const studentGrades = gradesForTw(s, getActiveTw());
+                    Object.keys(studentGrades || {}).forEach(sub => {
+                        if (!excludedSubjects.has(sub.toLowerCase())) {
+                            allSubjects.add(sub);
+                        }
+                    });
+                });
+                const availableSubjects = Array.from(allSubjects);
+
+                let subjectButtonsHtml = availableSubjects.map(sub => `
+                    <button type="button" onclick="selectSubjectOption('${sub}')" class="subject-chip px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-indigo-50 hover:border-indigo-500 hover:text-indigo-600 text-xs font-medium transition text-left flex items-center justify-between">
+                        <span>${sub}</span>
+                        <i class="fa-solid fa-chevron-right text-[10px] text-slate-400"></i>
+                    </button>
+                `).join('');
+
+                subjectInputHtml = `
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Pilih Mata Pelajaran (Klik salah satu)</label>
+                        <input type="text" id="grade-subject" required placeholder="Pilih dari daftar di bawah..." class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 text-sm mb-2">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-40 overflow-y-auto p-1.5 bg-slate-50 rounded-xl border border-slate-200">
+                            ${subjectButtonsHtml}
+                        </div>
+                    </div>
+                `;
+            }
 
             showModal(`
-                <h3 class="text-lg font-bold mb-1">Tambah Nilai</h3><p class="text-sm text-slate-500 mb-4">${student.name}</p>
+                <h3 class="text-lg font-bold text-slate-800 mb-1">Tambah Nilai</h3>
+                <p class="text-slate-500 text-sm mb-4">Siswa: <span class="font-semibold text-slate-700">${student.name}</span></p>
                 <form onsubmit="handleAddGradeSubmit(event, '${clsName}', '${subClsName}', '${studentId}')" class="space-y-4">
                     ${subjectInputHtml}
-                    <div><label class="block text-xs font-semibold uppercase mb-1">Nilai (0-100)</label><input type="number" id="grade-value" min="0" max="100" required class="w-full px-4 py-2.5 rounded-xl border text-sm"></div>
-                    <div class="flex justify-end gap-2"><button type="button" onclick="closeModal()" class="px-4 py-2 bg-slate-100 rounded-xl text-sm">Batal</button><button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm">Simpan</button></div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Nilai (0 - 100)</label>
+                        <input type="number" id="grade-value" min="0" max="100" required placeholder="Contoh: 85" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 text-sm">
+                    </div>
+                    <div class="flex justify-end space-x-2 pt-2">
+                        <button type="button" onclick="closeModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-medium transition">Batal</button>
+                        <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-medium transition">Tambah Nilai</button>
+                    </div>
                 </form>
             `);
+        }
+
+        function selectSubjectOption(subName) {
+            document.getElementById('grade-subject').value = subName;
+            document.querySelectorAll('.subject-chip').forEach(btn => {
+                if (btn.querySelector('span').textContent.trim() === subName) {
+                    btn.classList.add('bg-indigo-50', 'border-indigo-500', 'text-indigo-600');
+                } else {
+                    btn.classList.remove('bg-indigo-50', 'border-indigo-500', 'text-indigo-600');
+                }
+            });
         }
 
         function handleAddGradeSubmit(event, clsName, subClsName, studentId) {
             event.preventDefault();
             const subject = document.getElementById('grade-subject').value.trim();
             const val = parseFloat(document.getElementById('grade-value').value);
+
             if (!subject || isNaN(val)) return;
 
-            const student = getStudentList(clsName, subClsName).find(s => s.id === studentId);
+            const students = getStudentList(clsName, subClsName);
+            const student = students.find(s => s.id === studentId);
             if (student) {
                 addGradeForActiveTw(student, subject, val);
                 saveData();
@@ -559,64 +1000,809 @@
             }
         }
 
-        function openSettingsModal() {
+        function openDetailStudentModal(clsName, subClsName, studentId) {
+            const students = getStudentList(clsName, subClsName);
+            const student = students.find(s => s.id === studentId);
+            if (!student) return;
+
+            ensureStudentTwData(student);
+            let subjectsHtml = '';
+            const studentGrades = gradesForTw(student, getActiveTw());
+            const subjects = Object.keys(studentGrades || {});
+
+            if (subjects.length === 0) {
+                subjectsHtml = `<p class="text-sm text-slate-400 italic">Belum ada nilai mata pelajaran.</p>`;
+            } else {
+                subjectsHtml = `<div class="space-y-4 max-h-72 overflow-y-auto pr-1">`;
+                subjects.forEach(sub => {
+                    const arr = studentGrades[sub];
+                    const avg = getAverage(arr);
+                    
+                    let itemsHtml = arr.map((score, index) => `
+                        <div class="flex items-center justify-between bg-white px-3 py-2 rounded-lg border border-slate-200 text-xs gap-2">
+                            <span class="text-slate-600 font-medium">Nilai #${index + 1}: <strong class="text-slate-800 text-sm ml-1">${score}</strong></span>
+                            <div class="flex items-center space-x-1">
+                                <button type="button" onclick="openEditIndividualGradeModal('${clsName}', '${subClsName}', '${studentId}', '${sub}', ${index}, ${score})" class="px-2.5 py-1 bg-amber-50 text-amber-600 rounded-lg font-medium" title="Edit nilai ini"><i class="fa-solid fa-pen mr-1"></i> Edit</button>
+                                <button type="button" onclick="deleteGrade('${clsName}', '${subClsName}', '${studentId}', '${sub}', ${index})" class="px-2.5 py-1 bg-rose-50 text-rose-600 rounded-lg font-medium">Hapus</button>
+                            </div>
+                        </div>
+                    `).join('');
+
+                    subjectsHtml += `
+                        <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-2">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <h4 class="font-bold text-slate-800 text-sm">${sub}</h4>
+                                    <p class="text-xs font-semibold text-indigo-600 mt-0.5">Rata-rata: ${avg}</p>
+                                </div>
+                            </div>
+                            <div class="space-y-1.5 pt-1 border-t border-slate-200/60">
+                                ${itemsHtml}
+                            </div>
+                        </div>
+                    `;
+                });
+                subjectsHtml += `</div>`;
+            }
+
             showModal(`
-                <div class="flex justify-between pb-3 border-b mb-4"><h3 class="text-lg font-bold">Pengaturan</h3><button onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button></div>
-                <div class="space-y-2">
-                    <button onclick="triggerManualSpreadsheetReload()" class="w-full p-3 bg-emerald-50 text-emerald-700 rounded-xl font-semibold text-sm text-left"><i class="fa-solid fa-rotate-right mr-2"></i> Muat Ulang dari Spreadsheet</button>
+                <h3 class="text-lg font-bold text-slate-800 mb-1">Kelola / Edit Nilai Siswa</h3>
+                <p class="text-slate-500 text-sm mb-4">Nama: <span class="font-semibold text-slate-700">${student.name}</span></p>
+                <div class="mb-4">
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-2">Rincian Seluruh Nilai Per Mapel</label>
+                    ${subjectsHtml}
+                </div>
+                <div class="flex justify-end pt-2">
+                    <button type="button" onclick="closeModal()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-medium transition">Tutup</button>
                 </div>
             `);
         }
 
-        const SCRIPT_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzvxiAPXW6mz6I6j5eb26q3AMe5MW-3bhBP18T6SnMRCIJtmySmYjVHxc2ogeMPTws2/exec';
+        function openEditIndividualGradeModal(clsName, subClsName, studentId, subject, index, currentScore) {
+            showModal(`
+                <h3 class="text-lg font-bold text-slate-800 mb-1">Edit Nilai</h3>
+                <p class="text-slate-500 text-sm mb-4">Mapel: <span class="font-semibold text-slate-700">${subject}</span> (Nilai #${index + 1})</p>
+                <form onsubmit="handleUpdateIndividualGrade(event, '${clsName}', '${subClsName}', '${studentId}', '${subject}', ${index})" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Nilai Baru (0 - 100)</label>
+                        <input type="number" id="edit-grade-value" min="0" max="100" required value="${currentScore}" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 text-sm">
+                    </div>
+                    <div class="flex justify-end space-x-2 pt-2">
+                        <button type="button" onclick="openDetailStudentModal('${clsName}', '${subClsName}', '${studentId}')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-medium transition">Kembali</button>
+                        <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-medium transition">Simpan Perubahan</button>
+                    </div>
+                </form>
+            `);
+        }
 
+        function handleUpdateIndividualGrade(event, clsName, subClsName, studentId, subject, index) {
+            event.preventDefault();
+            const val = parseFloat(document.getElementById('edit-grade-value').value);
+            if (isNaN(val)) return;
+
+            const students = getStudentList(clsName, subClsName);
+            const student = students.find(s => s.id === studentId);
+            if (student) {
+                ensureStudentTwData(student);
+                const tw = getActiveTw();
+                if (student.grades[subject]) student.grades[subject][index] = val;
+                if (student.gradesByTw[tw] && student.gradesByTw[tw][subject]) student.gradesByTw[tw][subject][index] = val;
+                saveData();
+                openDetailStudentModal(clsName, subClsName, studentId);
+                render();
+            }
+        }
+
+        function openSettingsModal() {
+            showModal(`
+                <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+                    <div class="flex items-center space-x-2">
+                        <i class="fa-solid fa-gear text-indigo-600 text-lg"></i>
+                        <h3 class="text-lg font-bold text-slate-800">Pengaturan Data</h3>
+                    </div>
+                    <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 p-1">
+                        <i class="fa-solid fa-xmark text-lg"></i>
+                    </button>
+                </div>
+
+                <div class="space-y-2">
+                    <button onclick="openAdminSettingsModal()" class="w-full text-left p-3.5 rounded-xl border border-indigo-200 bg-indigo-50/40 hover:bg-indigo-50 transition flex items-center justify-between group">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-9 h-9 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold">
+                                <i class="fa-solid fa-user-shield"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-bold text-slate-800 group-hover:text-indigo-600">Pengaturan Admin</h4>
+                                <p class="text-xs text-slate-500">Atur Tahun Ajaran dan TW (Triwulan)</p>
+                            </div>
+                        </div>
+                        <i class="fa-solid fa-chevron-right text-xs text-slate-400"></i>
+                    </button>
+
+                    <button onclick="openAddClassOptionsModal()" class="w-full text-left p-3.5 rounded-xl border border-slate-200 hover:border-indigo-500 hover:bg-indigo-50/50 transition flex items-center justify-between group">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-9 h-9 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold">
+                                <i class="fa-solid fa-folder-plus"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-bold text-slate-800 group-hover:text-indigo-600">Tambah Kelas Baru</h4>
+                                <p class="text-xs text-slate-500">Tambah kelas biasa atau kelas mapel (seperti PAI)</p>
+                            </div>
+                        </div>
+                        <i class="fa-solid fa-chevron-right text-xs text-slate-400"></i>
+                    </button>
+
+                    <button onclick="openManageClassesModal()" class="w-full text-left p-3.5 rounded-xl border border-slate-200 hover:border-indigo-500 hover:bg-indigo-50/50 transition flex items-center justify-between group">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-9 h-9 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center font-bold">
+                                <i class="fa-solid fa-pen-to-square"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-bold text-slate-800 group-hover:text-indigo-600">Edit / Kelola Kelas</h4>
+                                <p class="text-xs text-slate-500">Ubah nama kelas atau hapus kelas</p>
+                            </div>
+                        </div>
+                        <i class="fa-solid fa-chevron-right text-xs text-slate-400"></i>
+                    </button>
+
+                    <button onclick="openAddStudentSettingModal()" class="w-full text-left p-3.5 rounded-xl border border-slate-200 hover:border-indigo-500 hover:bg-indigo-50/50 transition flex items-center justify-between group">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-9 h-9 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold">
+                                <i class="fa-solid fa-users"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-bold text-slate-800 group-hover:text-indigo-600">Tambah / Edit Siswa</h4>
+                                <p class="text-xs text-slate-500">Kelola siswa kelas biasa; kelas mapel mengikuti siswa yang sama</p>
+                            </div>
+                        </div>
+                        <i class="fa-solid fa-chevron-right text-xs text-slate-400"></i>
+                    </button>
+
+                    <button onclick="openManageSubjectsModal()" class="w-full text-left p-3.5 rounded-xl border border-slate-200 hover:border-indigo-500 hover:bg-indigo-50/50 transition flex items-center justify-between group">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-9 h-9 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center font-bold">
+                                <i class="fa-solid fa-book"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-bold text-slate-800 group-hover:text-indigo-600">Tambah / Edit Mapel</h4>
+                                <p class="text-xs text-slate-500">Kelola daftar mata pelajaran standar</p>
+                            </div>
+                        </div>
+                        <i class="fa-solid fa-chevron-right text-xs text-slate-400"></i>
+                    </button>
+                </div>
+            `);
+        }
+
+        function openAdminSettingsModal() {
+            const allClasses = Object.keys(schoolData);
+
+            let teacherListFieldsHtml = allClasses.map((cls) => {
+                const isSub = schoolData[cls]?.isSubCategory;
+                const labelTitle = isSub ? `Guru Mapel (${cls})` : `Guru ${cls}`;
+                const tData = (adminSettings.teachers && adminSettings.teachers[cls]) || { name: '', nip: '' };
+                const safeKey = encodeURIComponent(cls);
+
+                return `
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-200/80 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                                <i class="fa-solid ${isSub ? 'fa-book-quran text-emerald-500' : 'fa-chalkboard-user text-indigo-500'}"></i>
+                                ${labelTitle}
+                            </span>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-[10px] font-semibold text-slate-500 uppercase mb-0.5">Nama Guru</label>
+                                <input type="text" data-teacher-key="${safeKey}" data-field="name" value="${tData.name || ''}" placeholder="Nama Guru & Gelar" class="teacher-input w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs focus:outline-none focus:border-indigo-500">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-semibold text-slate-500 uppercase mb-0.5">NIP Guru</label>
+                                <input type="text" data-teacher-key="${safeKey}" data-field="nip" value="${tData.nip || ''}" placeholder="Contoh: 198501..." class="teacher-input w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs focus:outline-none focus:border-indigo-500">
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            showModal(`
+                <h3 class="text-lg font-bold text-slate-800 mb-1">Pengaturan Admin</h3>
+                <p class="text-slate-500 text-xs mb-4">Kelola informasi sekolah, Kepala Sekolah, penugasan Guru, serta tautan Spreadsheet.</p>
+
+                <form onsubmit="handleSaveAdminSettings(event)" class="space-y-4 max-h-[65vh] overflow-y-auto pr-1">
+                    <div class="flex justify-end">
+                        <button type="button" onclick="triggerManualSpreadsheetReload()" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition flex items-center gap-1.5 shadow-sm">
+                            <i class="fa-solid fa-rotate-right"></i> Muat Ulang Spreadsheet
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-indigo-50/40 p-3 rounded-xl border border-indigo-100">
+                        <div>
+                            <label class="block text-xs font-semibold text-indigo-900 uppercase mb-1">Tahun Ajaran</label>
+                            <input type="text" id="admin-academic-year" required value="${adminSettings.academicYear || '2026/2027'}" placeholder="Contoh: 2026/2027" class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-indigo-900 uppercase mb-1">Triwulan (TW)</label>
+                            <select id="admin-triwulan" required class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 text-sm bg-white">
+                                <option value="Triwulan I" ${adminSettings.triwulan === 'Triwulan I' ? 'selected' : ''}>Triwulan I (TW 1)</option>
+                                <option value="Triwulan II" ${adminSettings.triwulan === 'Triwulan II' ? 'selected' : ''}>Triwulan II (TW 2)</option>
+                                <option value="Triwulan III" ${adminSettings.triwulan === 'Triwulan III' ? 'selected' : ''}>Triwulan III (TW 3)</option>
+                                <option value="Triwulan IV" ${adminSettings.triwulan === 'Triwulan IV' ? 'selected' : ''}>Triwulan IV (TW 4)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="bg-amber-50/60 p-3.5 rounded-xl border border-amber-200/80 space-y-2.5">
+                        <div class="flex items-center space-x-2 text-amber-800 font-bold text-xs">
+                            <i class="fa-solid fa-user-tie text-base text-amber-600"></i>
+                            <span>NAMA & NIP KEPALA SEKOLAH</span>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            <div>
+                                <label class="block text-[11px] font-semibold text-slate-600 uppercase mb-1">Nama Kepala Sekolah</label>
+                                <input type="text" id="admin-headmaster-name" required value="${adminSettings.headmasterName || ''}" placeholder="Nama Kepsek & Gelar" class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-amber-500 text-xs font-medium">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-semibold text-slate-600 uppercase mb-1">NIP Kepala Sekolah</label>
+                                <input type="text" id="admin-headmaster-nip" value="${adminSettings.headmasterNip || ''}" placeholder="NIP Kepala Sekolah" class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-amber-500 text-xs font-medium">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="space-y-2.5 pt-1">
+                        <h4 class="text-xs font-bold text-slate-600 uppercase tracking-wide flex items-center gap-1.5">
+                            <i class="fa-solid fa-users-rectangle text-indigo-600"></i>
+                            Daftar Nama & NIP Guru Per Kelas / Mapel
+                        </h4>
+                        <div class="space-y-2">
+                            ${teacherListFieldsHtml}
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end space-x-2 pt-3 border-t border-slate-100">
+                        <button type="button" onclick="openSettingsModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition">Kembali</button>
+                        <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold transition">Simpan Pengaturan Admin</button>
+                    </div>
+                </form>
+            `);
+        }
+
+        function handleSaveAdminSettings(event) {
+            event.preventDefault();
+            const year = document.getElementById('admin-academic-year').value.trim();
+            const tw = document.getElementById('admin-triwulan').value;
+            const hmName = document.getElementById('admin-headmaster-name').value.trim();
+            const hmNip = document.getElementById('admin-headmaster-nip').value.trim();
+
+            if (!year) return;
+
+            const oldTw = getActiveTw();
+            if (oldTw !== tw) switchStudentsToTw(tw, oldTw);
+            adminSettings.academicYear = year;
+            adminSettings.triwulan = tw;
+            selectedRecapTw = tw;
+            adminSettings.headmasterName = hmName;
+            adminSettings.headmasterNip = hmNip;
+
+            const teacherInputs = document.querySelectorAll('.teacher-input');
+            if (!adminSettings.teachers) adminSettings.teachers = {};
+
+            teacherInputs.forEach(input => {
+                const key = decodeURIComponent(input.getAttribute('data-teacher-key'));
+                const field = input.getAttribute('data-field');
+                if (!adminSettings.teachers[key]) {
+                    adminSettings.teachers[key] = { name: '', nip: '' };
+                }
+                adminSettings.teachers[key][field] = input.value.trim();
+            });
+
+            saveData();
+            openSettingsModal();
+            render();
+        }
+
+        function openAddClassOptionsModal() {
+            showModal(`
+                <h3 class="text-lg font-bold text-slate-800 mb-1">Pilih Jenis Kelas</h3>
+                <p class="text-slate-500 text-sm mb-4">Pilih jenis kelas yang ingin Anda tambahkan.</p>
+                
+                <div class="space-y-3">
+                    <div onclick="openFormAddRegularClass()" class="p-4 rounded-xl border border-slate-200 hover:border-indigo-500 hover:bg-indigo-50/30 transition cursor-pointer flex items-center space-x-3">
+                        <div class="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold">
+                            <i class="fa-solid fa-school"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-slate-800 text-sm">1. Tambah Kelas Biasa</h4>
+                            <p class="text-xs text-slate-500">Contoh: Kelas 3 (Mendukung banyak mapel)</p>
+                        </div>
+                    </div>
+
+                    <div onclick="openFormAddSubjectClass()" class="p-4 rounded-xl border border-slate-200 hover:border-indigo-500 hover:bg-indigo-50/30 transition cursor-pointer flex items-center space-x-3">
+                        <div class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold">
+                            <i class="fa-solid fa-book-quran"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-slate-800 text-sm">2. Tambah Kelas Mapel (Seperti PAI)</h4>
+                            <p class="text-xs text-slate-500">Mempunyai sub-kelas 1-6 dan khusus untuk 1 mata pelajaran</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-end pt-4">
+                    <button type="button" onclick="openSettingsModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-medium transition">Kembali</button>
+                </div>
+            `);
+        }
+
+        function openFormAddRegularClass() {
+            showModal(`
+                <h3 class="text-lg font-bold text-slate-800 mb-1">Tambah Kelas Biasa</h3>
+                <p class="text-slate-500 text-sm mb-4">Masukkan nama kelas biasa baru.</p>
+                <form onsubmit="handleAddRegularClassSubmit(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Nama Kelas</label>
+                        <input type="text" id="new-reg-class-name" required placeholder="Contoh: Kelas 3" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 text-sm">
+                    </div>
+                    <div class="flex justify-end space-x-2 pt-2">
+                        <button type="button" onclick="openAddClassOptionsModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-medium transition">Kembali</button>
+                        <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-medium transition">Simpan Kelas</button>
+                    </div>
+                </form>
+            `);
+        }
+
+        function handleAddRegularClassSubmit(event) {
+            event.preventDefault();
+            const className = document.getElementById('new-reg-class-name').value.trim();
+            if (!className) return;
+
+            if (schoolData[className]) {
+                alert('Nama kelas sudah ada!');
+                return;
+            }
+
+            schoolData[className] = {
+                isSubCategory: false,
+                students: []
+            };
+            saveData();
+            openSettingsModal();
+            render();
+        }
+
+        function openFormAddSubjectClass() {
+            const subjects = [...new Set([...(customSubjectsList || []), 'PAI'])];
+            showModal(`
+                <h3 class="text-lg font-bold text-slate-800 mb-1">Tambah Kelas Mapel</h3>
+                <p class="text-slate-500 text-sm mb-4">Siswa mengikuti daftar siswa kelas biasa; tidak perlu menambah siswa khusus untuk kelas mapel.</p>
+                <form onsubmit="handleAddSubjectClassSubmit(event)" class="space-y-4">
+                    <div><label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Nama Kelas Mapel</label>
+                    <input type="text" id="new-sub-class-title" required placeholder="Contoh: Kelas PAI" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm"></div>
+                    <div><label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Mata Pelajaran</label>
+                    <input type="text" id="new-sub-class-subject" list="subject-options" required value="PAI" placeholder="Contoh: PAI" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm">
+                    <datalist id="subject-options">${subjects.map(x => `<option value="${x}">`).join('')}</datalist></div>
+                    <div class="flex justify-end gap-2"><button type="button" onclick="openAddClassOptionsModal()" class="px-4 py-2 bg-slate-100 rounded-xl text-sm">Kembali</button><button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm">Simpan Kelas Mapel</button></div>
+                </form>`);
+        }
+
+        function handleAddSubjectClassSubmit(event) {
+            event.preventDefault();
+            const groupName = document.getElementById('new-sub-class-title').value.trim();
+            const subjectName = document.getElementById('new-sub-class-subject').value.trim();
+
+            if (!groupName || !subjectName) return;
+
+            if (schoolData[groupName]) {
+                alert('Nama kelas ini sudah ada!');
+                return;
+            }
+
+            const subClasses = {};
+            for (let i = 1; i <= 6; i++) {
+                subClasses[`${subjectName} Kelas ${i}`] = [];
+            }
+
+            schoolData[groupName] = {
+                isSubCategory: true,
+                subjectName: subjectName,
+                subClasses: subClasses
+            };
+
+            saveData();
+            openSettingsModal();
+            render();
+        }
+
+        function openManageClassesModal() {
+            const classKeys = Object.keys(schoolData);
+            let classListHtml = classKeys.map(cls => `
+                <div class="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-200 text-sm">
+                    <span class="font-semibold text-slate-800">${cls}</span>
+                    <div class="flex gap-1"><button onclick="openRenameClassModal('${cls.replace(/'/g, "\\'")}')" class="px-2.5 py-1 bg-amber-50 text-amber-600 rounded-lg text-xs font-semibold"><i class="fa-solid fa-pen"></i> Edit</button><button onclick="deleteClass('${cls.replace(/'/g, "\\'")}')" class="px-2.5 py-1 bg-rose-50 text-rose-600 rounded-lg text-xs font-semibold">Hapus</button></div>
+                </div>
+            `).join('');
+
+            showModal(`
+                <h3 class="text-lg font-bold text-slate-800 mb-1">Edit / Kelola Kelas</h3>
+                <p class="text-slate-500 text-sm mb-4">Ubah nama kelas yang terdaftar.</p>
+                <div class="space-y-2 max-h-60 overflow-y-auto mb-4">
+                    ${classListHtml}
+                </div>
+                <div class="flex justify-end">
+                    <button type="button" onclick="openSettingsModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-medium transition">Kembali</button>
+                </div>
+            `);
+        }
+
+        function openRenameClassModal(oldName) {
+            showModal(`
+                <h3 class="text-lg font-bold text-slate-800 mb-1">Ubah Nama Kelas</h3>
+                <p class="text-slate-500 text-sm mb-4">Mengubah nama kelas: <span class="font-semibold text-slate-700">${oldName}</span></p>
+                <form onsubmit="handleRenameClassSubmit(event, '${oldName.replace(/'/g, "\\'")}')" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Nama Baru</label>
+                        <input type="text" id="rename-class-input" required value="${oldName}" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 text-sm">
+                    </div>
+                    <div class="flex justify-end space-x-2 pt-2">
+                        <button type="button" onclick="openManageClassesModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-medium transition">Batal</button>
+                        <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-medium transition">Simpan Perubahan</button>
+                    </div>
+                </form>
+            `);
+        }
+
+        function handleRenameClassSubmit(event, oldName) {
+            event.preventDefault();
+            const newName = document.getElementById('rename-class-input').value.trim();
+            if (!newName || newName === oldName) return;
+
+            if (schoolData[newName]) {
+                alert('Nama kelas sudah digunakan!');
+                return;
+            }
+
+            schoolData[newName] = schoolData[oldName];
+            delete schoolData[oldName];
+            saveData();
+
+            if (selectedClass === oldName) {
+                selectedClass = newName;
+            }
+
+            openManageClassesModal();
+            render();
+        }
+
+        function openAddStudentSettingModal() {
+            let classOptionsHtml = '';
+            Object.keys(schoolData).forEach(cls => {
+                const clsObj = schoolData[cls];
+                if (clsObj.isSubCategory) {
+                    return; 
+                } else {
+                    classOptionsHtml += `<option value="${cls}||">${cls}</option>`;
+                }
+            });
+
+            let existingStudentsListHtml = '';
+            let hasStudents = false;
+
+            Object.keys(schoolData).forEach(cls => {
+                const clsObj = schoolData[cls];
+                if (clsObj.isSubCategory) return;
+                const stds = clsObj.students || [];
+                stds.forEach(std => {
+                    hasStudents = true;
+                    existingStudentsListHtml += `
+                        <div class="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-sm">
+                            <div><span class="font-semibold text-slate-800">${std.name}</span><span class="block text-[11px] text-slate-400">${cls}</span></div>
+                            <div class="flex gap-1">
+                                <button onclick="openRenameStudentModal('${cls.replace(/'/g, "\\'")}', '', '${std.id.replace(/'/g, "\\'")}', '${std.name.replace(/'/g, "\\'")}')" class="px-2.5 py-1 bg-amber-50 text-amber-600 rounded-lg text-xs font-semibold">Edit Nama</button>
+                                <button onclick="deleteStudent('${cls.replace(/'/g, "\\'")}', '', '${std.id.replace(/'/g, "\\'")}')" class="px-2.5 py-1 bg-rose-50 text-rose-600 rounded-lg text-xs font-semibold">Hapus</button>
+                            </div>
+                        </div>`;
+                });
+            });
+
+            if (!hasStudents) {
+                existingStudentsListHtml = `<p class="text-xs text-slate-400 italic">Belum ada siswa terdaftar.</p>`;
+            }
+
+            showModal(`
+                <h3 class="text-lg font-bold text-slate-800 mb-1">Kelola Siswa</h3>
+                <p class="text-slate-500 text-sm mb-4">Kelola siswa kelas biasa. Kelas mapel menggunakan siswa yang sama.</p>
+                
+                <div class="bg-indigo-50/50 p-3.5 rounded-xl border border-indigo-100 mb-5">
+                    <h4 class="text-xs font-bold text-indigo-700 uppercase tracking-wide mb-2"><i class="fa-solid fa-user-plus mr-1"></i> Tambah Siswa Baru</h4>
+                    <form onsubmit="handleAddStudentSettingSubmit(event)" class="space-y-3">
+                        <div>
+                            <label class="block text-[11px] font-semibold text-slate-600 uppercase mb-1">Pilih Kelas</label>
+                            <select id="student-target-class" required class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 text-sm bg-white">
+                                ${classOptionsHtml}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-semibold text-slate-600 uppercase mb-1">Nama Siswa Baru</label>
+                            <input type="text" id="setting-student-name" required placeholder="Contoh: Muhammad Rizky" class="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 text-sm">
+                        </div>
+                        <button type="submit" class="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold transition">
+                            <i class="fa-solid fa-plus mr-1"></i> Tambah Siswa
+                        </button>
+                    </form>
+                </div>
+
+                <div>
+                    <h4 class="text-xs font-bold text-slate-600 uppercase tracking-wide mb-2"><i class="fa-solid fa-user-pen mr-1"></i> Edit Nama Siswa Terdaftar</h4>
+                    <div class="space-y-2 max-h-44 overflow-y-auto pr-1">
+                        ${existingStudentsListHtml}
+                    </div>
+                </div>
+
+                <div class="flex justify-end pt-4 border-t border-slate-100 mt-4">
+                    <button type="button" onclick="openSettingsModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-medium transition">Kembali</button>
+                </div>
+            `);
+        }
+
+        function openRenameStudentModal(clsName, subClsName, studentId, currentName) {
+            showModal(`
+                <h3 class="text-lg font-bold text-slate-800 mb-1">Edit Nama Siswa</h3>
+                <p class="text-slate-500 text-sm mb-4">Ubah nama untuk: <span class="font-semibold text-slate-700">${currentName}</span></p>
+                <form onsubmit="handleRenameStudentSubmit(event, '${clsName.replace(/'/g, "\\'")}', '${subClsName.replace(/'/g, "\\'")}', '${studentId.replace(/'/g, "\\'")}')" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Nama Baru</label>
+                        <input type="text" id="edit-student-name-input" required value="${currentName}" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 text-sm">
+                    </div>
+                    <div class="flex justify-end space-x-2 pt-2">
+                        <button type="button" onclick="openAddStudentSettingModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-medium transition">Batal</button>
+                        <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-medium transition">Simpan Perubahan</button>
+                    </div>
+                </form>
+            `);
+        }
+
+        function handleRenameStudentSubmit(event, clsName, subClsName, studentId) {
+            event.preventDefault();
+            const newName = document.getElementById('edit-student-name-input').value.trim();
+            if (!newName) return;
+
+            const students = getStudentList(clsName, subClsName);
+            const student = students.find(s => s.id === studentId);
+            if (student) {
+                student.name = newName;
+                saveData();
+                openAddStudentSettingModal();
+                render();
+            }
+        }
+
+        function handleAddStudentSettingSubmit(event) {
+            event.preventDefault();
+            const target = document.getElementById('student-target-class').value;
+            const studentName = document.getElementById('setting-student-name').value.trim();
+
+            if (!target || !studentName) return;
+
+            const [clsName, subClsName] = target.split('||');
+            const newStudent = {
+                id: 's_' + Math.random().toString(36).substring(2, 9),
+                name: studentName,
+                grades: {}
+            };
+
+            const parentObj = schoolData[clsName];
+            if (parentObj.isSubCategory) {
+                alert('Kelas mapel memakai siswa dari kelas biasa. Tambahkan siswa melalui menu kelas biasa.');
+                return;
+            } else {
+                parentObj.students.push(newStudent);
+            }
+
+            saveData();
+            openSettingsModal();
+            render();
+        }
+
+        function deleteStudent(clsName, subClsName, studentId) {
+            if (!confirm('Hapus siswa ini beserta seluruh nilainya?')) return;
+            const list = getStudentList(clsName, subClsName);
+            const i = list.findIndex(x => x.id === studentId);
+            if (i >= 0) list.splice(i, 1);
+            saveData(); openAddStudentSettingModal(); render();
+        }
+        function deleteClass(clsName) {
+            if (!confirm(`Hapus kelas "${clsName}" beserta data siswanya dan nilainya?`)) return;
+            delete schoolData[clsName];
+            if (selectedClass === clsName) selectedClass = Object.keys(schoolData)[0] || null;
+            saveData(); openManageClassesModal(); render();
+        }
+        function deleteSubject(index) {
+            const name = customSubjectsList[index];
+            if (!confirm(`Hapus mapel "${name}" dari daftar? Nilai lama dengan nama mapel ini juga akan dihapus dari semua siswa.`)) return;
+            customSubjectsList.splice(index, 1);
+            Object.keys(schoolData).forEach(cls => {
+                const obj = schoolData[cls];
+                const lists = obj.isSubCategory ? Object.values(obj.subClasses || {}) : [obj.students || []];
+                lists.forEach(list => list.forEach(st => {
+                    if (st.grades) delete st.grades[name];
+                    Object.values(st.gradesByTw || {}).forEach(map => { if (map) delete map[name]; });
+                }));
+            });
+            saveData(); openManageSubjectsModal(); render();
+        }
+        function deleteGrade(clsName, subClsName, studentId, subject, index) {
+            if (!confirm('Hapus nilai ini?')) return;
+            const student = getStudentList(clsName, subClsName).find(x => x.id === studentId);
+            if (student) {
+                ensureStudentTwData(student);
+                const tw = getActiveTw();
+                if (student.grades && student.grades[subject]) {
+                    student.grades[subject].splice(index, 1);
+                    if (!student.grades[subject].length) delete student.grades[subject];
+                }
+                const twMap = student.gradesByTw[tw] || {};
+                if (twMap[subject]) { 
+                    twMap[subject].splice(index, 1); 
+                    if (!twMap[subject].length) delete twMap[subject]; 
+                }
+            }
+            saveData(); openDetailStudentModal(clsName, subClsName, studentId); render();
+        }
+
+        function openManageSubjectsModal() {
+            let subjectsListHtml = customSubjectsList.map((sub, idx) => `
+                <div class="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-sm">
+                    <span class="font-medium text-slate-800">${sub}</span>
+                    <div class="flex gap-1"><button onclick="openEditSubjectNameModal(${idx})" class="px-2.5 py-1 bg-amber-50 text-amber-600 rounded-lg text-xs font-semibold"><i class="fa-solid fa-pen"></i> Edit</button><button onclick="deleteSubject(${idx})" class="px-2.5 py-1 bg-rose-50 text-rose-600 rounded-lg text-xs font-semibold">Hapus</button></div>
+                </div>
+            `).join('');
+
+            showModal(`
+                <h3 class="text-lg font-bold text-slate-800 mb-1">Tambah / Edit Mapel Standar</h3>
+                <p class="text-slate-500 text-sm mb-3">Daftar mata pelajaran yang dapat dipilih saat input nilai.</p>
+
+                <form onsubmit="handleAddNewSubjectSubmit(event)" class="flex gap-2 mb-4">
+                    <input type="text" id="new-custom-subject-input" required placeholder="Tambah Mapel Baru..." class="flex-grow px-3.5 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-indigo-500">
+                    <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 rounded-xl text-sm font-medium transition">
+                        <i class="fa-solid fa-plus mr-1"></i> Tambah
+                    </button>
+                </form>
+
+                <div class="space-y-2 max-h-52 overflow-y-auto mb-4">
+                    ${subjectsListHtml}
+                </div>
+
+                <div class="flex justify-end">
+                    <button type="button" onclick="openSettingsModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-medium transition">Kembali</button>
+                </div>
+            `);
+        }
+
+        function handleAddNewSubjectSubmit(event) {
+            event.preventDefault();
+            const val = document.getElementById('new-custom-subject-input').value.trim();
+            if (!val) return;
+
+            if (!customSubjectsList.includes(val)) {
+                customSubjectsList.push(val);
+                saveData();
+            }
+            openManageSubjectsModal();
+        }
+
+        function openEditSubjectNameModal(index) {
+            const currentSub = customSubjectsList[index];
+            showModal(`
+                <h3 class="text-lg font-bold text-slate-800 mb-1">Edit Mata Pelajaran</h3>
+                <p class="text-slate-500 text-sm mb-4">Ubah nama mapel: <span class="font-semibold text-slate-700">${currentSub}</span></p>
+                <form onsubmit="handleUpdateSubjectNameSubmit(event, ${index})" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Nama Mapel Baru</label>
+                        <input type="text" id="edit-subject-input" required value="${currentSub}" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 text-sm">
+                    </div>
+                    <div class="flex justify-end space-x-2 pt-2">
+                        <button type="button" onclick="openManageSubjectsModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-medium transition">Batal</button>
+                        <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-medium transition">Simpan Perubahan</button>
+                    </div>
+                </form>
+            `);
+        }
+
+        function handleUpdateSubjectNameSubmit(event, index) {
+            event.preventDefault();
+            const newVal = document.getElementById('edit-subject-input').value.trim();
+            if (!newVal) return;
+
+            customSubjectsList[index] = newVal;
+            saveData();
+            openManageSubjectsModal();
+        }
+
+        // GANTI dengan URL Web App hasil Deploy Code.gs yang baru (akhiran /exec).
+        const SCRIPT_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwxMSjrm7M07-0AGa6HaiJjHw6bEbFvAcmNk4cKtHQaxhisjO5IRrSdfLRT5jcvO5hz/exec';
+        
         async function fetchSpreadsheetData(showLoader = true) {
             const loader = document.getElementById('loading-overlay');
             if (loader && showLoader) loader.classList.remove('hidden');
+            const endpoint = SCRIPT_WEB_APP_URL;
+            if (!endpoint || endpoint === 'TEMPEL_URL_WEB_APP_DI_SINI') {
+                if (loader) loader.classList.add('hidden');
+                render();
+                alert('Tempel URL Web App hasil Deploy Code.gs pada konstanta SCRIPT_WEB_APP_URL di index.html.');
+                return;
+            }
+            adminSettings.scriptUrl = endpoint;
             const callbackName = 'sheetCallback_' + Date.now();
             const script = document.createElement('script');
             let finished = false;
             const cleanup = () => {
                 if (finished) return;
                 finished = true;
-                try { delete window[callbackName]; } catch(e){}
+                try { delete window[callbackName]; } catch (e) { window[callbackName] = undefined; }
                 if (script.parentNode) script.parentNode.removeChild(script);
                 if (loader) loader.classList.add('hidden');
             };
             window[callbackName] = function(payload) {
                 try {
-                    if (payload && payload.ok === false) throw new Error(payload.error);
+                    if (payload && payload.ok === false) throw new Error(payload.error || 'Gagal membaca Spreadsheet');
                     if (payload) {
                         schoolData = payload.schoolData || {};
                         customSubjectsList = payload.subjects || defaultSubjects;
                         adminSettings = Object.assign({}, defaultAdminSettings, adminSettings, payload.settings || {});
+                        if (!adminSettings.teachers) adminSettings.teachers = {};
+                        adminSettings.scriptUrl = endpoint;
                         saveLocalOnly();
                     }
                     render();
-                } catch(err) {
+                } catch (err) {
+                    console.error(err);
                     render();
+                    alert('Data Spreadsheet tidak dapat dibaca: ' + (err.message || err));
                 } finally { cleanup(); }
             };
-            script.onerror = () => { cleanup(); render(); };
-            script.src = SCRIPT_WEB_APP_URL + '?action=getAppData&callback=' + callbackName + '&_=' + Date.now();
+            script.onerror = function() {
+                cleanup(); render();
+                alert('Gagal terhubung ke Web App. Periksa URL Deploy dan aksesnya (Anyone).');
+            };
+            script.src = endpoint + (endpoint.includes('?') ? '&' : '?') + 'action=getAppData&callback=' + callbackName + '&_=' + Date.now();
             document.head.appendChild(script);
         }
 
+        function saveLocalOnly() {
+            localStorage.setItem('school_grade_recap_v4', JSON.stringify(schoolData));
+            localStorage.setItem('school_grade_subjects_v4', JSON.stringify(customSubjectsList));
+            localStorage.setItem('school_grade_admin_v4', JSON.stringify(adminSettings));
+        }
+
         async function saveData(syncToBackend = true) {
+            eachUniqueStudent(student => {
+                if (!student.gradesByTw) student.gradesByTw = {};
+                student.gradesByTw[getActiveTw()] = cloneGradeMap(student.grades || {});
+            });
             saveLocalOnly();
-            if (!syncToBackend) return;
+            const endpoint = SCRIPT_WEB_APP_URL;
+            adminSettings.scriptUrl = endpoint;
+            if (!syncToBackend || !endpoint || endpoint === 'TEMPEL_URL_WEB_APP_DI_SINI') return;
             try {
-                await fetch(SCRIPT_WEB_APP_URL, {
+                await fetch(endpoint, {
                     method: 'POST',
                     mode: 'no-cors',
                     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                    body: JSON.stringify({ action: 'saveAppData', schoolData: schoolData, subjects: customSubjectsList, settings: adminSettings })
+                    body: JSON.stringify({
+                        action: 'saveAppData',
+                        schoolData: schoolData,
+                        subjects: customSubjectsList,
+                        settings: Object.assign({}, adminSettings, { scriptUrl: endpoint })
+                    })
                 });
-            } catch(err) {}
+            } catch (err) {
+                console.error('Gagal mengirim data ke Spreadsheet:', err);
+                alert('Data tersimpan di perangkat, tetapi pengiriman ke Spreadsheet gagal. Periksa URL Web App.');
+            }
         }
 
-        function triggerManualSpreadsheetReload() { closeModal(); fetchSpreadsheetData(true); }
-        window.onload = () => fetchSpreadsheetData(true);
+        function triggerManualSpreadsheetReload() { fetchSpreadsheetData(true); }
+        window.onload = function() { fetchSpreadsheetData(true); };
     </script>
 </body>
 </html>
