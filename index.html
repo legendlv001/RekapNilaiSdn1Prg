@@ -177,315 +177,10 @@
             }
         }
 
-        function saveData() {
+        function saveDataLocal() {
             localStorage.setItem('school_grade_recap_v4', JSON.stringify(schoolData));
             localStorage.setItem('school_grade_subjects_v4', JSON.stringify(customSubjectsList));
             localStorage.setItem('school_grade_admin_v4', JSON.stringify(adminSettings));
-        }
-
-        // Helper to convert Google Sheets sharing URL to CSV export URL for specific sheet names/gids if needed,
-        // or parse multi-sheet JSON/CSV exports. Since standard web fetch CSV gets the first sheet,
-        // we can fetch published CSV or handle simulated/actual Google Sheets API parsing for multi-tabs:
-        // Admin, Guru, Siswa, Kelas sheets.
-        function getCsvExportUrl(url, gid = 0) {
-            if (!url) return "";
-            try {
-                let match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
-                if (match && match[1]) {
-                    const docId = match[1];
-                    return `https://docs.google.com/spreadsheets/d/${docId}/export?format=csv&gid=${gid}`;
-                }
-            } catch(e) {}
-            return url;
-        }
-
-        // Simple CSV row parser handling quotes and commas
-        function parseCSV(text) {
-            const lines = text.split(/\r\n|\n/);
-            const result = [];
-            for (let i = 0; i < lines.length; i++) {
-                if (!lines[i].trim()) continue;
-                let row = [];
-                let inQuotes = false;
-                let currentVal = '';
-                for (let j = 0; j < lines[i].length; j++) {
-                    let char = lines[i][j];
-                    if (char === '"') {
-                        inQuotes = !inQuotes;
-                    } else if (char === ',' && !inQuotes) {
-                        row.push(currentVal.trim());
-                        currentVal = '';
-                    } else {
-                        currentVal += char;
-                    }
-                }
-                row.push(currentVal.trim());
-                result.push(row);
-            }
-            return result;
-        }
-
-        async function fetchSpreadsheetData(showLoader = true) {
-            const loader = document.getElementById('loading-overlay');
-            const spinnerBox = document.getElementById('loading-spinner-box');
-            const loadingTitle = document.getElementById('loading-title');
-            const loadingDesc = document.getElementById('loading-desc');
-            const errorAction = document.getElementById('loading-error-action');
-
-            if (showLoader && loader) {
-                loader.classList.remove('hidden');
-                loader.style.opacity = '1';
-                if (spinnerBox) spinnerBox.classList.remove('hidden');
-                if (loadingTitle) loadingTitle.textContent = "Memuat Data dari Spreadsheet...";
-                if (loadingDesc) loadingDesc.textContent = "Membaca Sheet Admin, Guru, Siswa, dan Kelas...";
-                if (errorAction) errorAction.classList.add('hidden');
-            }
-
-            const targetUrl = adminSettings.spreadsheetUrl || defaultAdminSettings.spreadsheetUrl;
-
-            try {
-                // 1. Fetch Admin Sheet (gid=0 or default)
-                // Sheet Admin format: B1 = url script, B2 = Tw, B3 = tahun ajar, B4 = Mapel (separated by ;)
-                const adminCsvUrl = getCsvExportUrl(targetUrl, 0);
-                const adminRes = await fetch(adminCsvUrl);
-                if (adminRes.ok) {
-                    const adminText = await adminRes.text();
-                    const adminRows = parseCSV(adminText);
-                    // Row 0 or Row indices for B1 (row 0 col 1), B2 (row 1 col 1), B3 (row 2 col 1), B4 (row 3 col 1)
-                    if (adminRows.length > 0) {
-                        if (adminRows[1] && adminRows[1][1]) adminSettings.spreadsheetUrl = adminRows[1][1];
-                        if (adminRows[1] && adminRows[1][1]) adminSettings.scriptUrl = adminRows[1][1];
-                        if (adminRows[1] && adminRows[1][2]) adminSettings.triwulan = adminRows[1][2]; // or row index 1 col 1 depending on layout
-                    }
-                    // More robust parsing for B1, B2, B3, B4:
-                    // Let's inspect column 1 (B) across rows
-                    adminRows.forEach((row, idx) => {
-                        const cellB = row[1] || row[0] || "";
-                        if (idx === 1 && cellB) adminSettings.triwulan = cellB; // B2
-                        if (idx === 2 && cellB) adminSettings.academicYear = cellB; // B3
-                        if (idx === 3 && cellB) {
-                            // B4: Mapel dipisah oleh ;
-                            const mapels = cellB.split(';').map(m => m.trim()).filter(Boolean);
-                            if (mapels.length > 0) {
-                                customSubjectsList = mapels;
-                            }
-                        }
-                    });
-                }
-
-                // 2. Fetch Guru Sheet (gid=1 or parse)
-                // Kolom A jabatan, Kolom B nama, Kolom C nip
-                const guruCsvUrl = getCsvExportUrl(targetUrl, 1);
-                const guruRes = await fetch(guruCsvUrl);
-                if (guruRes.ok) {
-                    const guruText = await guruRes.text();
-                    const guruRows = parseCSV(guruText);
-                    guruRows.forEach((row, idx) => {
-                        if (idx === 0) return; // header
-                        const jabatan = row[0] || "";
-                        const nama = row[1] || "";
-                        const nip = row[2] || "";
-                        if (jabatan.toLowerCase().includes("kepala sekolah")) {
-                            adminSettings.headmasterName = nama;
-                            adminSettings.headmasterNip = nip;
-                        } else if (jabatan) {
-                            // Match jabatan to class name e.g. "Kelas 2" or "Guru Kelas 2"
-                            Object.keys(schoolData).forEach(cls => {
-                                if (jabatan.toLowerCase().includes(cls.toLowerCase())) {
-                                    if (!adminSettings.teachers[cls]) adminSettings.teachers[cls] = { name: "", nip: "" };
-                                    adminSettings.teachers[cls].name = nama;
-                                    adminSettings.teachers[cls].nip = nip;
-                                }
-                            });
-                        }
-                    });
-                }
-
-                // 3. Fetch Siswa Sheet (gid=2)
-                // Kolom A No urut siswa perkelas, Kolom B Nama Siswa, Kolom C Kelas siswa
-                const siswaCsvUrl = getCsvExportUrl(targetUrl, 2);
-                const siswaRes = await fetch(siswaCsvUrl);
-                if (siswaRes.ok) {
-                    const siswaText = await siswaRes.text();
-                    const siswaRows = parseCSV(siswaText);
-                    
-                    siswaRows.forEach((row, idx) => {
-                        if (idx === 0) return; // header
-                        const noUrut = row[0];
-                        const namaSiswa = row[1];
-                        const kelasSiswa = row[2];
-
-                        if (namaSiswa && kelasSiswa) {
-                            // Ensure class exists or create new sheet/class if it doesn't exist
-                            if (!schoolData[kelasSiswa]) {
-                                // If class starts with PAI or mapel or regular
-                                if (kelasSiswa.toLowerCase().includes("pai") || kelasSiswa.toLowerCase().includes("mapel")) {
-                                    schoolData[kelasSiswa] = {
-                                        isSubCategory: true,
-                                        subjectName: "PAI",
-                                        subClasses: {
-                                            "PAI Kelas 1": [], "PAI Kelas 2": [], "PAI Kelas 3": [],
-                                            "PAI Kelas 4": [], "PAI Kelas 5": [], "PAI Kelas 6": []
-                                        }
-                                    };
-                                } else {
-                                    schoolData[kelasSiswa] = {
-                                        isSubCategory: false,
-                                        students: []
-                                    };
-                                }
-                            }
-
-                            const clsObj = schoolData[kelasSiswa];
-                            const studentObj = {
-                                id: 's_' + Math.random().toString(36).substring(2, 9),
-                                name: namaSiswa,
-                                grades: {}
-                            };
-
-                            if (clsObj.isSubCategory) {
-                                // Put into default subClass or match sub-class
-                                const subKey = Object.keys(clsObj.subClasses)[0];
-                                if (!clsObj.subClasses[subKey].some(s => s.name === namaSiswa)) {
-                                    clsObj.subClasses[subKey].push(studentObj);
-                                }
-                            } else {
-                                if (!clsObj.students.some(s => s.name === namaSiswa)) {
-                                    clsObj.students.push(studentObj);
-                                }
-                            }
-                        }
-                    });
-                }
-
-                // 4. Fetch Kelas Sheets (Kelas 2 s/d Kelas PAI etc.)
-                // Kolom A no urut siswa perkelas, Kolom B nama siswa, Kolom C kelas siswa, Kolom D nilai siswa, Kolom E mapel siswa
-                // We can iterate over existing classes and fetch their tab if available (gid=3,4,...) or parse
-                for (const clsName of Object.keys(schoolData)) {
-                    // We can also check if custom sheet tabs exist or parse from data tabs
-                }
-
-                saveData();
-                setTimeout(() => {
-                    if (loader) {
-                        loader.style.opacity = '0';
-                        setTimeout(() => loader.classList.add('hidden'), 300);
-                    }
-                    render();
-                }, 600);
-
-            } catch (err) {
-                console.warn("Spreadsheet sync fallback to local storage:", err);
-                setTimeout(() => {
-                    if (loader) {
-                        loader.style.opacity = '0';
-                        setTimeout(() => loader.classList.add('hidden'), 300);
-                    }
-                    render();
-                }, 600);
-            }
-        }
-
-        function triggerManualSpreadsheetReload() {
-            fetchSpreadsheetData(true);
-        }
-
-        function saveData(syncToBackend = true) {
-            localStorage.setItem('school_grade_recap_v4', JSON.stringify(schoolData));
-            localStorage.setItem('school_grade_subjects_v4', JSON.stringify(customSubjectsList));
-            localStorage.setItem('school_grade_admin_v4', JSON.stringify(adminSettings));
-        }
-
-        // Helper to convert Google Sheets sharing URL to CSV export URL
-        function getCsvExportUrl(url) {
-            if (!url) return "";
-            try {
-                // If it contains /edit, replace or append /export?format=csv
-                let match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
-                if (match && match[1]) {
-                    const docId = match[1];
-                    return `https://docs.google.com/spreadsheets/d/${docId}/export?format=csv`;
-                }
-            } catch(e) {}
-            return url;
-        }
-
-        async function fetchSpreadsheetData(showLoader = true) {
-            const loader = document.getElementById('loading-overlay');
-            const spinnerBox = document.getElementById('loading-spinner-box');
-            const loadingTitle = document.getElementById('loading-title');
-            const loadingDesc = document.getElementById('loading-desc');
-            const errorAction = document.getElementById('loading-error-action');
-
-            if (showLoader && loader) {
-                loader.classList.remove('hidden');
-                loader.style.opacity = '1';
-                if (spinnerBox) spinnerBox.classList.remove('hidden');
-                if (loadingTitle) loadingTitle.textContent = "Memuat Data dari Spreadsheet...";
-                if (loadingDesc) loadingDesc.textContent = "Mengambil rekap nilai dan pengaturan terbaru SDN 1 Parigi";
-                if (errorAction) errorAction.classList.add('hidden');
-            }
-
-            const targetUrl = adminSettings.spreadsheetUrl || defaultAdminSettings.spreadsheetUrl;
-            const csvUrl = getCsvExportUrl(targetUrl);
-
-            try {
-                // Attempt fetching CSV from Google Sheets
-                const response = await fetch(csvUrl);
-                if (!response.ok) throw new Error("Gagal terhubung ke Google Spreadsheet");
-                const csvText = await response.text();
-                
-                // Parse CSV simple parser if desired, or fallback to mock integration sync
-                // For demonstration, if CSV fetch succeeds or parses rows, we can process it or merge.
-                // If CSV contains data rows, we can map them. If it fails due to CORS or structure, we handle gracefully.
-                
-                // Simulate successful fetch & parsing / merging
-                setTimeout(() => {
-                    if (loader) {
-                        loader.style.opacity = '0';
-                        setTimeout(() => loader.classList.add('hidden'), 300);
-                    }
-                    render();
-                }, 600);
-
-            } catch (err) {
-                console.warn("Spreadsheet fetch error or CORS notice:", err);
-                // Fallback: If fetch fails (CORS or offline), we still load local saved data successfully
-                setTimeout(() => {
-                    if (loader) {
-                        loader.style.opacity = '0';
-                        setTimeout(() => loader.classList.add('hidden'), 300);
-                    }
-                    render();
-                }, 600);
-            }
-        }
-
-        function triggerManualSpreadsheetReload() {
-            const loader = document.getElementById('loading-overlay');
-            const spinnerBox = document.getElementById('loading-spinner-box');
-            const loadingTitle = document.getElementById('loading-title');
-            const loadingDesc = document.getElementById('loading-desc');
-            const errorAction = document.getElementById('loading-error-action');
-
-            if (loader) {
-                loader.classList.remove('hidden');
-                loader.style.opacity = '1';
-                if (spinnerBox) spinnerBox.classList.remove('hidden');
-                if (loadingTitle) loadingTitle.textContent = "Memuat Ulang Spreadsheet...";
-                if (loadingDesc) loadingDesc.textContent = "Menyinkronkan data terbaru dari Google Sheets...";
-                if (errorAction) errorAction.classList.add('hidden');
-            }
-
-            closeModal();
-
-            setTimeout(() => {
-                if (loader) {
-                    loader.style.opacity = '0';
-                    setTimeout(() => loader.classList.add('hidden'), 300);
-                }
-                render();
-            }, 1000);
         }
 
         function updateAcademicHeaderDisplay() {
@@ -600,7 +295,7 @@
                         rowsHtml = `<tr><td colspan="3" style="border: 1px solid #000; padding: 4px; text-align: center; color: #777; font-style: italic; font-size: 10px;">- Belum Ada Siswa -</td></tr>`;
                     } else {
                         stds.forEach((s, idx) => {
-                            const gradesArr = s.grades[subjectTitle] || [];
+                            const gradesArr = gradesForTw(s, tw)[subjectTitle] || [];
                             const avg = getAverage(gradesArr);
                             const hasGrades = gradesArr.length > 0;
                             rowsHtml += `
@@ -692,7 +387,8 @@
 
             let allSubjects = new Set();
             students.forEach(s => {
-                Object.keys(s.grades || {}).forEach(sub => allSubjects.add(sub));
+                const gMap = gradesForTw(s, tw);
+                Object.keys(gMap || {}).forEach(sub => allSubjects.add(sub));
             });
             const subjectsList = Array.from(allSubjects);
 
@@ -710,13 +406,14 @@
                 tableRowsHtml = `<tr><td colspan="${totalCols}" style="border: 1px solid #333; padding: 12px; text-align: center; color: #666;">Tidak ada data siswa.</td></tr>`;
             } else {
                 students.forEach((s, idx) => {
+                    const studentGrades = gradesForTw(s, tw);
                     tableRowsHtml += `<tr>`;
                     tableRowsHtml += `<td style="border: 1px solid #333; padding: 6px; text-align: center;">${idx + 1}</td>`;
                     tableRowsHtml += `<td style="border: 1px solid #333; padding: 6px; font-weight: bold;">${s.name}</td>`;
                     tableRowsHtml += `<td style="border: 1px solid #333; padding: 6px; text-align: center;">${displayTitle}</td>`;
 
                     subjectsList.forEach(sub => {
-                        const gradesArr = s.grades[sub] || [];
+                        const gradesArr = studentGrades[sub] || [];
                         const avg = getAverage(gradesArr);
                         const hasGrades = gradesArr.length > 0;
                         tableRowsHtml += `<td style="border: 1px solid #333; padding: 6px; text-align: center; font-weight: bold;">${hasGrades ? avg : '-'}</td>`;
@@ -992,7 +689,6 @@
             if (!student.gradesByTw || typeof student.gradesByTw !== 'object') student.gradesByTw = {};
             const tw = getActiveTw();
             if (!student.gradesByTw[tw]) student.gradesByTw[tw] = cloneGradeMap(student.grades || {});
-            // Grades is the working view for the TW currently selected in Admin.
             student.grades = cloneGradeMap(student.gradesByTw[tw]);
             return student.gradesByTw;
         }
@@ -1018,9 +714,9 @@
             if (!student.gradesByTw[tw][subject]) student.gradesByTw[tw][subject] = [];
             student.gradesByTw[tw][subject].push(value);
         }
+
         function renderTwRecap(students, subjectsList, clsName, subClsName) {
             const tw = selectedRecapTw || getActiveTw();
-            const safeTw = tw.replace(/'/g, "\'");
             const options = ALL_TRIWULAN.map(item => `<option value="${item}" ${item === tw ? 'selected' : ''}>${item}</option>`).join('');
             const rows = students.map((student, idx) => {
                 const grades = gradesForTw(student, tw);
@@ -1039,11 +735,6 @@
             </div>`;
         }
 
-        // Mapel khusus (PAI) hanya dikelola dari kelompok kelas mapel, bukan kelas utama.
-        function isSeparateMapelSubject(subject) {
-            return /\\bpai\\b/i.test(String(subject || '').trim());
-        }
-
         function renderClassDetailView(clsName, subClsName = null) {
             let students = [];
             let displayTitle = clsName;
@@ -1060,11 +751,21 @@
 
             let allSubjects = new Set();
             if (!isSubCat) {
-                students.forEach(s => {
-                    Object.keys(s.grades || {}).forEach(sub => { if (!isSeparateMapelSubject(sub)) allSubjects.add(sub); });
-                    Object.values(s.gradesByTw || {}).forEach(map => Object.keys(map || {}).forEach(sub => { if (!isSeparateMapelSubject(sub)) allSubjects.add(sub); }));
+                // Di kelas biasa, pastikan mata pelajaran khusus PAI TIDAK dimunculkan/ditampilkan
+                const excludedSubjects = new Set(['pai', 'pendidikan agama islam']);
+                customSubjectsList.forEach(sub => {
+                    if (!excludedSubjects.has(sub.toLowerCase())) {
+                        allSubjects.add(sub);
+                    }
                 });
-                customSubjectsList.forEach(sub => { if (!isSeparateMapelSubject(sub)) allSubjects.add(sub); });
+                students.forEach(s => {
+                    const studentGrades = gradesForTw(s, getActiveTw());
+                    Object.keys(studentGrades || {}).forEach(sub => {
+                        if (!excludedSubjects.has(sub.toLowerCase())) {
+                            allSubjects.add(sub);
+                        }
+                    });
+                });
             } else {
                 allSubjects.add(fixedSubject);
             }
@@ -1120,6 +821,7 @@
 
                 students.forEach(student => {
                     const escapedStudentId = String(student.id || student.name).replace(/'/g, "\\'");
+                    const studentGrades = gradesForTw(student, getActiveTw());
                     html += `
                         <tr class="hover:bg-slate-50/80 transition">
                             <td class="p-4 font-semibold text-slate-800">
@@ -1133,7 +835,7 @@
                     `;
 
                     subjectsList.forEach(sub => {
-                        const gradesArr = student.grades[sub] || [];
+                        const gradesArr = studentGrades[sub] || [];
                         const avg = getAverage(gradesArr);
                         const hasGrades = gradesArr.length > 0;
                         
@@ -1189,14 +891,14 @@
             const parent = schoolData[clsName];
             if (!parent) return [];
             if (parent.isSubCategory && subClsName) {
-                // Kelas mapel memakai murid kelas biasa yang sama, bukan daftar murid terpisah.
                 const match = String(subClsName).match(/(?:kelas|class)\s*(\d+)/i) || String(subClsName).match(/(\d+)\s*$/i);
                 if (match) {
                     const n = match[1];
                     const regularKey = Object.keys(schoolData).find(k => !schoolData[k]?.isSubCategory && new RegExp('(?:kelas|class)\\s*' + n + '$', 'i').test(k.trim()));
                     if (regularKey) return schoolData[regularKey].students || [];
                 }
-                return parent.subClasses[subClsName] || [];
+                if (!parent.subClasses[subClsName]) parent.subClasses[subClsName] = [];
+                return parent.subClasses[subClsName];
             }
             return parent.students || [];
         }
@@ -1218,10 +920,21 @@
                     </div>
                 `;
             } else {
-                let allSubjects = new Set([...customSubjectsList].filter(sub => !isSeparateMapelSubject(sub)));
-                students.forEach(s => Object.keys(s.grades || {}).forEach(sub => {
-                    if (!isSeparateMapelSubject(sub)) allSubjects.add(sub);
-                }));
+                let allSubjects = new Set();
+                const excludedSubjects = new Set(['pai', 'pendidikan agama islam']);
+                customSubjectsList.forEach(sub => {
+                    if (!excludedSubjects.has(sub.toLowerCase())) {
+                        allSubjects.add(sub);
+                    }
+                });
+                students.forEach(s => {
+                    const studentGrades = gradesForTw(s, getActiveTw());
+                    Object.keys(studentGrades || {}).forEach(sub => {
+                        if (!excludedSubjects.has(sub.toLowerCase())) {
+                            allSubjects.add(sub);
+                        }
+                    });
+                });
                 const availableSubjects = Array.from(allSubjects);
 
                 let subjectButtonsHtml = availableSubjects.map(sub => `
@@ -1276,18 +989,6 @@
             const val = parseFloat(document.getElementById('grade-value').value);
 
             if (!subject || isNaN(val)) return;
-            const parentForGrade = schoolData[clsName];
-            if (parentForGrade && parentForGrade.isSubCategory) {
-                // Kelas mapel selalu menyimpan nilai pada mapel yang ditetapkan untuk kelompok tersebut.
-                const fixedSubject = parentForGrade.subjectName || 'PAI';
-                if (subject !== fixedSubject) {
-                    alert('Kelas mapel ini hanya menerima nilai ' + fixedSubject + '.');
-                    return;
-                }
-            } else if (isSeparateMapelSubject(subject)) {
-                alert('Nilai PAI harus diinput melalui menu Kelas PAI, bukan kelas utama.');
-                return;
-            }
 
             const students = getStudentList(clsName, subClsName);
             const student = students.find(s => s.id === studentId);
@@ -1306,19 +1007,15 @@
 
             ensureStudentTwData(student);
             let subjectsHtml = '';
-            const isMapelView = !!(schoolData[clsName] && schoolData[clsName].isSubCategory);
-            const subjects = Object.keys(student.grades || {}).filter(sub =>
-                isMapelView
-                    ? sub === (schoolData[clsName].subjectName || 'PAI')
-                    : !isSeparateMapelSubject(sub)
-            );
+            const studentGrades = gradesForTw(student, getActiveTw());
+            const subjects = Object.keys(studentGrades || {});
 
             if (subjects.length === 0) {
                 subjectsHtml = `<p class="text-sm text-slate-400 italic">Belum ada nilai mata pelajaran.</p>`;
             } else {
                 subjectsHtml = `<div class="space-y-4 max-h-72 overflow-y-auto pr-1">`;
                 subjects.forEach(sub => {
-                    const arr = student.grades[sub];
+                    const arr = studentGrades[sub];
                     const avg = getAverage(arr);
                     
                     let itemsHtml = arr.map((score, index) => `
@@ -1385,10 +1082,10 @@
 
             const students = getStudentList(clsName, subClsName);
             const student = students.find(s => s.id === studentId);
-            if (student && student.grades[subject]) {
+            if (student) {
                 ensureStudentTwData(student);
-                student.grades[subject][index] = val;
                 const tw = getActiveTw();
+                if (student.grades[subject]) student.grades[subject][index] = val;
                 if (student.gradesByTw[tw] && student.gradesByTw[tw][subject]) student.gradesByTw[tw][subject][index] = val;
                 saveData();
                 openDetailStudentModal(clsName, subClsName, studentId);
@@ -1586,7 +1283,6 @@
             selectedRecapTw = tw;
             adminSettings.headmasterName = hmName;
             adminSettings.headmasterNip = hmNip;
-            // URL Web App dibaca otomatis dari sel Admin!B1, tidak ditampilkan di pengaturan.
 
             const teacherInputs = document.querySelectorAll('.teacher-input');
             if (!adminSettings.teachers) adminSettings.teachers = {};
@@ -1782,7 +1478,7 @@
             Object.keys(schoolData).forEach(cls => {
                 const clsObj = schoolData[cls];
                 if (clsObj.isSubCategory) {
-                    return; // Murid kelas mapel mengikuti murid kelas biasa.
+                    return; 
                 } else {
                     classOptionsHtml += `<option value="${cls}||">${cls}</option>`;
                 }
@@ -1793,7 +1489,7 @@
 
             Object.keys(schoolData).forEach(cls => {
                 const clsObj = schoolData[cls];
-                if (clsObj.isSubCategory) return; // Murid dikelola hanya dari kelas biasa.
+                if (clsObj.isSubCategory) return;
                 const stds = clsObj.students || [];
                 stds.forEach(std => {
                     hasStudents = true;
@@ -1937,13 +1633,18 @@
         function deleteGrade(clsName, subClsName, studentId, subject, index) {
             if (!confirm('Hapus nilai ini?')) return;
             const student = getStudentList(clsName, subClsName).find(x => x.id === studentId);
-            if (student && student.grades && student.grades[subject]) {
+            if (student) {
                 ensureStudentTwData(student);
-                student.grades[subject].splice(index, 1);
-                if (!student.grades[subject].length) delete student.grades[subject];
                 const tw = getActiveTw();
+                if (student.grades && student.grades[subject]) {
+                    student.grades[subject].splice(index, 1);
+                    if (!student.grades[subject].length) delete student.grades[subject];
+                }
                 const twMap = student.gradesByTw[tw] || {};
-                if (twMap[subject]) { twMap[subject].splice(index, 1); if (!twMap[subject].length) delete twMap[subject]; }
+                if (twMap[subject]) { 
+                    twMap[subject].splice(index, 1); 
+                    if (!twMap[subject].length) delete twMap[subject]; 
+                }
             }
             saveData(); openDetailStudentModal(clsName, subClsName, studentId); render();
         }
@@ -2017,9 +1718,8 @@
             openManageSubjectsModal();
         }
 
-
-        // Integrasi Web App Google Apps Script. URL disetel di kode agar perangkat baru tidak perlu membaca Admin!B1 lewat CSV.
-        const SCRIPT_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwnrbAWzEwIZ2oBuaRX7PVfL6p2diwaTvq0D6uwv1iiNYvlMkcvu_ELUex39A2o7eRy/exec';
+        const SCRIPT_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzHJ7I-yRc8BhTIksvtq0iCZOEmTnlM4QaR4CloswRp1WwwDq1XexMIPTV1iaIi3h4e/exec';
+        
         async function fetchSpreadsheetData(showLoader = true) {
             const loader = document.getElementById('loading-overlay');
             if (loader && showLoader) loader.classList.remove('hidden');
@@ -2060,11 +1760,13 @@
             script.src = endpoint + (endpoint.includes('?') ? '&' : '?') + 'action=getAppData&callback=' + callbackName + '&_=' + Date.now();
             document.head.appendChild(script);
         }
+
         function saveLocalOnly() {
             localStorage.setItem('school_grade_recap_v4', JSON.stringify(schoolData));
             localStorage.setItem('school_grade_subjects_v4', JSON.stringify(customSubjectsList));
             localStorage.setItem('school_grade_admin_v4', JSON.stringify(adminSettings));
         }
+
         async function saveData(syncToBackend = true) {
             eachUniqueStudent(student => {
                 if (!student.gradesByTw) student.gradesByTw = {};
@@ -2091,9 +1793,9 @@
                 alert('Data tersimpan di perangkat, tetapi pengiriman ke Spreadsheet gagal. Periksa URL Web App.');
             }
         }
+
         function triggerManualSpreadsheetReload() { fetchSpreadsheetData(true); }
         window.onload = function() { fetchSpreadsheetData(true); };
-
     </script>
 </body>
 </html>
