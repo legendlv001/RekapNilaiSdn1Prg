@@ -1782,7 +1782,7 @@
             saveLocalOnly();
             const endpoint = SCRIPT_WEB_APP_URL;
             adminSettings.scriptUrl = endpoint;
-            if (!syncToBackend || !endpoint || endpoint === 'TEMPEL_URL_WEB_APP_DI_SINI') return;
+            if (!syncToBackend || !endpoint || endpoint === 'https://script.google.com/macros/s/AKfycbzERMBQqxn3Ip68Z4-MiGengma6BCEgOr5bTJuNbos8bYnnV3_SrAEJPyi0Su25FtWh/exec') return;
             try {
                 await fetch(endpoint, {
                     method: 'POST',
