@@ -958,83 +958,155 @@ customSubjectsList[index] = newVal;
 saveData();
 openManageSubjectsModal();
 }
-const SCRIPT_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzFAxvYd4f0tDD9TzxvDNsg8YqummUmK9bjslKdPly7rZ8RSYOnEEUAey4Epao6VAcx/exec';
+// ID spreadsheet yang sama dengan backend Kode.gs.
+// HTML GitHub membaca URL Web App terbaru dari Admin!B1.
+const SPREADSHEET_ID_FOR_BOOTSTRAP = '1dHd8-ixTrO8kjj_ThpKcE5BZX5c5SnVRS2m6PSzpwMg';
+let activeWebAppUrl = '';
+
+function readWebAppUrlFromAdmin() {
+  return new Promise((resolve, reject) => {
+    const callbackName = 'adminUrlCallback_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
+    const script = document.createElement('script');
+    let finished = false;
+    const timeout = setTimeout(() => cleanup(new Error('Waktu habis saat membaca Admin!B1. Pastikan sheet Admin dipublikasikan untuk web.')), 15000);
+
+    function cleanup(error, value) {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timeout);
+      try { delete window[callbackName]; } catch (e) { window[callbackName] = undefined; }
+      if (script.parentNode) script.parentNode.removeChild(script);
+      if (error) reject(error); else resolve(value);
+    }
+
+    window[callbackName] = function(response) {
+      try {
+        if (!response || response.status !== 'ok') {
+          throw new Error('Google Sheets tidak mengembalikan data Admin!B1. Pastikan tab Admin dipublikasikan ke web dan dapat dilihat publik.');
+        }
+        const rows = response.table && response.table.rows ? response.table.rows : [];
+        const cell = rows[0] && rows[0].c ? rows[0].c[0] : null;
+        const url = String(cell ? (cell.v || cell.f || '') : '').trim();
+        if (!/^https:\/\/script\.google\.com\/macros\/s\/[^\s]+\/exec(?:\?.*)?$/.test(url)) {
+          throw new Error('Isi Admin!B1 bukan URL Web App Apps Script yang valid. Tempel URL yang berakhiran /exec ke Admin!B1.');
+        }
+        cleanup(null, url);
+      } catch (error) {
+        cleanup(error);
+      }
+    };
+
+    script.onerror = () => cleanup(new Error('Tidak dapat membaca Admin!B1. Pastikan tab Admin dipublikasikan ke web.'));
+    const query = 'select B limit 1';
+    const params = new URLSearchParams({
+      sheet: 'Admin',
+      headers: '0',
+      tq: query,
+      tqx: 'out:json;responseHandler:' + callbackName,
+      _: String(Date.now())
+    });
+    script.src = 'https://docs.google.com/spreadsheets/d/' + SPREADSHEET_ID_FOR_BOOTSTRAP + '/gviz/tq?' + params.toString();
+    document.head.appendChild(script);
+  });
+}
+
+async function getActiveWebAppUrl() {
+  if (activeWebAppUrl) return activeWebAppUrl;
+  activeWebAppUrl = await readWebAppUrlFromAdmin();
+  adminSettings.scriptUrl = activeWebAppUrl;
+  saveLocalOnly();
+  return activeWebAppUrl;
+}
+
 async function fetchSpreadsheetData(showLoader = true) {
-const loader = document.getElementById('loading-overlay');
-if (loader && showLoader) loader.classList.remove('hidden');
-const endpoint = SCRIPT_WEB_APP_URL;
-if (!endpoint || endpoint === 'TEMPEL_URL_WEB_APP_DI_SINI') {
-if (loader) loader.classList.add('hidden');
-render();
-alert('Tempel URL Web App hasil Deploy Code.gs pada konstanta SCRIPT_WEB_APP_URL di index.html.');
-return;
+  const loader = document.getElementById('loading-overlay');
+  if (loader && showLoader) loader.classList.remove('hidden');
+  let endpoint = '';
+  try {
+    // URL tidak ditulis permanen di HTML. Setiap halaman dimuat, URL dibaca dari Admin!B1.
+    endpoint = await readWebAppUrlFromAdmin();
+    activeWebAppUrl = endpoint;
+    adminSettings.scriptUrl = endpoint;
+  } catch (error) {
+    if (loader) loader.classList.add('hidden');
+    render();
+    console.error(error);
+    alert('URL Web App tidak berhasil dibaca dari Admin!B1.\n\n' + (error.message || error) + '\n\nPastikan tab Admin dipublikasikan ke web (hanya tab Admin), lalu muat ulang halaman GitHub.');
+    return;
+  }
+
+  const callbackName = 'sheetCallback_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
+  const script = document.createElement('script');
+  let finished = false;
+  const timeout = setTimeout(() => {
+    cleanup();
+    render();
+    alert('Waktu habis saat mengambil data Spreadsheet. Periksa URL di Admin!B1 dan akses Web App (Anyone).');
+  }, 20000);
+  const cleanup = () => {
+    if (finished) return;
+    finished = true;
+    clearTimeout(timeout);
+    try { delete window[callbackName]; } catch (e) { window[callbackName] = undefined; }
+    if (script.parentNode) script.parentNode.removeChild(script);
+    if (loader) loader.classList.add('hidden');
+  };
+  window[callbackName] = function(payload) {
+    try {
+      if (payload && payload.ok === false) throw new Error(payload.error || 'Gagal membaca Spreadsheet');
+      if (!payload) throw new Error('Respons Web App kosong.');
+      schoolData = payload.schoolData || {};
+      customSubjectsList = payload.subjects || defaultSubjects;
+      adminSettings = Object.assign({}, defaultAdminSettings, adminSettings, payload.settings || {});
+      if (!adminSettings.teachers) adminSettings.teachers = {};
+      adminSettings.scriptUrl = endpoint;
+      saveLocalOnly();
+      render();
+    } catch (err) {
+      console.error(err);
+      render();
+      alert('Data Spreadsheet tidak dapat dibaca: ' + (err.message || err));
+    } finally { cleanup(); }
+  };
+  script.onerror = function() {
+    cleanup(); render();
+    alert('Gagal terhubung ke Web App. Periksa URL pada Admin!B1 dan pastikan deployment dapat diakses oleh Anyone.');
+  };
+  script.src = endpoint + (endpoint.includes('?') ? '&' : '?') + 'action=getAppData&callback=' + callbackName + '&_=' + Date.now();
+  document.head.appendChild(script);
 }
-adminSettings.scriptUrl = endpoint;
-const callbackName = 'sheetCallback_' + Date.now();
-const script = document.createElement('script');
-let finished = false;
-const cleanup = () => {
-if (finished) return;
-finished = true;
-try { delete window[callbackName]; } catch (e) { window[callbackName] = undefined; }
-if (script.parentNode) script.parentNode.removeChild(script);
-if (loader) loader.classList.add('hidden');
-};
-window[callbackName] = function(payload) {
-try {
-if (payload && payload.ok === false) throw new Error(payload.error || 'Gagal membaca Spreadsheet');
-if (payload) {
-schoolData = payload.schoolData || {};
-customSubjectsList = payload.subjects || defaultSubjects;
-adminSettings = Object.assign({}, defaultAdminSettings, adminSettings, payload.settings || {});
-if (!adminSettings.teachers) adminSettings.teachers = {};
-adminSettings.scriptUrl = endpoint;
-saveLocalOnly();
-}
-render();
-} catch (err) {
-console.error(err);
-render();
-alert('Data Spreadsheet tidak dapat dibaca: ' + (err.message || err));
-} finally { cleanup(); }
-};
-script.onerror = function() {
-cleanup(); render();
-alert('Gagal terhubung ke Web App. Periksa URL Deploy dan aksesnya (Anyone).');
-};
-script.src = endpoint + (endpoint.includes('?') ? '&' : '?') + 'action=getAppData&callback=' + callbackName + '&_=' + Date.now();
-document.head.appendChild(script);
-}
+
 function saveLocalOnly() {
-localStorage.setItem('school_grade_recap_v4', JSON.stringify(schoolData));
-localStorage.setItem('school_grade_subjects_v4', JSON.stringify(customSubjectsList));
-localStorage.setItem('school_grade_admin_v4', JSON.stringify(adminSettings));
+  localStorage.setItem('school_grade_recap_v4', JSON.stringify(schoolData));
+  localStorage.setItem('school_grade_subjects_v4', JSON.stringify(customSubjectsList));
+  localStorage.setItem('school_grade_admin_v4', JSON.stringify(adminSettings));
 }
+
 async function saveData(syncToBackend = true) {
-eachUniqueStudent(student => {
-if (!student.gradesByTw) student.gradesByTw = {};
-student.gradesByTw[getActiveTw()] = cloneGradeMap(student.grades || {});
-});
-saveLocalOnly();
-const endpoint = SCRIPT_WEB_APP_URL;
-adminSettings.scriptUrl = endpoint;
-if (!syncToBackend || !endpoint || endpoint === 'TEMPEL_URL_WEB_APP_DI_SINI') return;
-try {
-await fetch(endpoint, {
-method: 'POST',
-mode: 'no-cors',
-headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-body: JSON.stringify({
-action: 'saveAppData',
-schoolData: schoolData,
-subjects: customSubjectsList,
-settings: Object.assign({}, adminSettings, { scriptUrl: endpoint })
-})
-});
-} catch (err) {
-console.error('Gagal mengirim data ke Spreadsheet:', err);
-alert('Data tersimpan di perangkat, tetapi pengiriman ke Spreadsheet gagal. Periksa URL Web App.');
-}
+  eachUniqueStudent(student => {
+    if (!student.gradesByTw) student.gradesByTw = {};
+    student.gradesByTw[getActiveTw()] = cloneGradeMap(student.grades || {});
+  });
+  saveLocalOnly();
+  if (!syncToBackend) return;
+  try {
+    const endpoint = await getActiveWebAppUrl();
+    adminSettings.scriptUrl = endpoint;
+    await fetch(endpoint, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        action: 'saveAppData',
+        schoolData: schoolData,
+        subjects: customSubjectsList,
+        settings: Object.assign({}, adminSettings, { scriptUrl: endpoint })
+      })
+    });
+  } catch (err) {
+    console.error('Gagal mengirim data ke Spreadsheet:', err);
+    alert('Data tersimpan di perangkat, tetapi URL dari Admin!B1 tidak dapat dibaca atau pengiriman ke Spreadsheet gagal. ' + (err.message || err));
+  }
 }
 function triggerManualSpreadsheetReload() { fetchSpreadsheetData(true); }
 window.onload = function() { fetchSpreadsheetData(true); };
