@@ -284,7 +284,7 @@ row2TablesHtml += buildClassTableHtml(key, classRomanLabels[i]);
 printArea.innerHTML = `
 <div style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 14px;">
 <h2 style="font-size: 16px; font-weight: bold; margin: 0; text-transform: uppercase;">SD NEGERI 1 PARIGI</h2>
-<h1 style="font-size: 14px; font-weight: bold; margin: 3px 0 0 0; text-transform: uppercase;">REKAPITULASI NILAI MATA PELAJARAN {subjectTitle.toUpperCase()} (KELAS I - VI)</h1>
+<h1 style="font-size: 14px; font-weight: bold; margin: 3px 0 0 0; text-transform: uppercase;">REKAPITULASI NILAI MATA PELAJARAN ${subjectTitle.toUpperCase()} (KELAS I - VI)</h1>
 <p style="font-size: 11px; margin: 3px 0 0 0; font-weight: 500;"><strong>${tw}</strong> Tahun Ajaran <strong>${year}</strong></p>
 </div>
 <div style="display: flex; gap: 12px; margin-bottom: 12px; align-items: flex-start;">
@@ -297,8 +297,8 @@ ${row2TablesHtml}
 <div style="text-align: center; width: 35%;">
 <p style="margin-bottom: 45px;">Mengetahui,
 Kepala Sekolah</p>
-<p style="font-weight: bold; text-decoration: underline; margin: 0;">{headmasterName}</p>
-<p style="margin: 2px 0 0 0;">{headmasterNip}</p>
+<p style="font-weight: bold; text-decoration: underline; margin: 0;">${headmasterName}</p>
+<p style="margin: 2px 0 0 0;">${headmasterNip}</p>
 </div>
 <div style="text-align: center; width: 35%;">
 <p style="margin-bottom: 45px;">Daha Selatan, ${todayDate}<br>${teacherRoleTitle}</p>
@@ -370,8 +370,8 @@ ${tableRowsHtml}
 <div style="text-align: center; width: 35%;">
 <p style="margin-bottom: 50px;">Mengetahui,
 Kepala Sekolah</p>
-<p style="font-weight: bold; text-decoration: underline; margin: 0;">{headmasterName}</p>
-<p style="margin: 2px 0 0 0;">{headmasterNip}</p>
+<p style="font-weight: bold; text-decoration: underline; margin: 0;">${headmasterName}</p>
+<p style="margin: 2px 0 0 0;">${headmasterNip}</p>
 </div>
 <div style="text-align: center; width: 35%;">
 <p style="margin-bottom: 50px;">Daha Selatan, ${todayDate}<br>${teacherRoleTitle}</p>
