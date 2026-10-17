@@ -1089,23 +1089,44 @@ async function saveData(syncToBackend = true) {
   });
   saveLocalOnly();
   if (!syncToBackend) return;
+
   try {
     const endpoint = await getActiveWebAppUrl();
     adminSettings.scriptUrl = endpoint;
-    await fetch(endpoint, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({
-        action: 'saveAppData',
-        schoolData: schoolData,
-        subjects: customSubjectsList,
-        settings: Object.assign({}, adminSettings, { scriptUrl: endpoint })
-      })
+    saveLocalOnly();
+
+    // Form POST lintas-domain lebih andal untuk GitHub Pages -> Apps Script,
+    // dan tidak memerlukan CORS response yang dapat dibaca browser.
+    const payload = JSON.stringify({
+      action: 'saveAppData',
+      schoolData: schoolData,
+      subjects: customSubjectsList,
+      settings: Object.assign({}, adminSettings, { scriptUrl: endpoint })
     });
+    const frameName = 'saveFrame_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
+    const frame = document.createElement('iframe');
+    frame.name = frameName;
+    frame.style.display = 'none';
+    frame.setAttribute('aria-hidden', 'true');
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = endpoint;
+    form.target = frameName;
+    form.style.display = 'none';
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'payload';
+    input.value = payload;
+    form.appendChild(input);
+    document.body.appendChild(frame);
+    document.body.appendChild(form);
+    form.submit();
+    setTimeout(() => {
+      try { form.remove(); frame.remove(); } catch (e) {}
+    }, 20000);
   } catch (err) {
     console.error('Gagal mengirim data ke Spreadsheet:', err);
-    alert('Data tersimpan di perangkat, tetapi URL dari Admin!B1 tidak dapat dibaca atau pengiriman ke Spreadsheet gagal. ' + (err.message || err));
+    alert('Data tersimpan di perangkat, tetapi pengiriman ke Spreadsheet gagal. Pastikan Admin!B1 berisi URL Web App yang benar dan deployment Apps Script sudah diperbarui. ' + (err.message || err));
   }
 }
 function triggerManualSpreadsheetReload() { fetchSpreadsheetData(true); }
