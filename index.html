@@ -742,6 +742,47 @@ openDetailStudentModal(clsName, subClsName, studentId);
 render();
 }
 }
+function escapeHtml_(value) {
+return String(value == null ? '' : value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+function jsArg_(value) { return String(value == null ? '' : value).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, ' '); }
+function openAddStudentSettingModal() {
+const regularClasses = Object.keys(schoolData).filter(cls => !schoolData[cls]?.isSubCategory);
+const classOptionsHtml = regularClasses.map(cls => `<option value="${escapeHtml_(cls)}">${escapeHtml_(cls)}</option>`).join('');
+let rows = '';
+let hasStudents = false;
+regularClasses.forEach(cls => {
+  (schoolData[cls].students || []).forEach(std => {
+    hasStudents = true;
+    rows += `<div class="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-sm gap-2"><div><span class="font-semibold text-slate-800">${escapeHtml_(std.name)}</span><span class="block text-[11px] text-slate-400">${escapeHtml_(cls)}${std.number != null && std.number !== '' ? ' • No. ' + escapeHtml_(std.number) : ''}</span></div><div class="flex gap-1 shrink-0"><button type="button" onclick="openRenameStudentModal('${jsArg_(cls)}','','${jsArg_(std.id)}','${jsArg_(std.name)}')" class="px-2.5 py-1 bg-amber-50 text-amber-600 rounded-lg text-xs font-semibold">Edit Nama</button><button type="button" onclick="deleteStudent('${jsArg_(cls)}','','${jsArg_(std.id)}')" class="px-2.5 py-1 bg-rose-50 text-rose-600 rounded-lg text-xs font-semibold">Hapus</button></div></div>`;
+  });
+});
+if (!hasStudents) rows = '<p class="text-xs text-slate-400 italic">Belum ada siswa terdaftar.</p>';
+showModal(`<h3 class="text-lg font-bold text-slate-800 mb-1">Tambah / Edit Siswa</h3><p class="text-slate-500 text-sm mb-4">Data siswa disimpan pada Sheet Siswa.</p><div class="bg-indigo-50/50 p-3.5 rounded-xl border border-indigo-100 mb-5"><h4 class="text-xs font-bold text-indigo-700 uppercase tracking-wide mb-2"><i class="fa-solid fa-user-plus mr-1"></i> Tambah Siswa Baru</h4><form onsubmit="handleAddStudentSettingSubmit(event)" class="space-y-3"><div><label class="block text-[11px] font-semibold text-slate-600 uppercase mb-1">Pilih Kelas</label><select id="student-target-class" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm bg-white">${classOptionsHtml}</select></div><div><label class="block text-[11px] font-semibold text-slate-600 uppercase mb-1">Nama Siswa Baru</label><input type="text" id="setting-student-name" required placeholder="Nama lengkap siswa" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm"></div><button type="submit" class="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold"><i class="fa-solid fa-plus mr-1"></i> Tambah Siswa</button></form></div><div><h4 class="text-xs font-bold text-slate-600 uppercase tracking-wide mb-2"><i class="fa-solid fa-user-pen mr-1"></i> Siswa Terdaftar</h4><div class="space-y-2 max-h-60 overflow-y-auto pr-1">${rows}</div></div><div class="flex justify-end pt-4 border-t border-slate-100 mt-4"><button type="button" onclick="openSettingsModal()" class="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-sm">Kembali</button></div>`);
+}
+function openRenameStudentModal(clsName, subClsName, studentId, currentName) {
+showModal(`<h3 class="text-lg font-bold text-slate-800 mb-1">Edit Nama Siswa</h3><p class="text-slate-500 text-sm mb-4">Ubah nama siswa: <b>${escapeHtml_(currentName)}</b></p><form onsubmit="handleRenameStudentSubmit(event,'${jsArg_(clsName)}','${jsArg_(subClsName)}','${jsArg_(studentId)}')" class="space-y-4"><input id="edit-student-name-input" required value="${escapeHtml_(currentName)}" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm"><div class="flex justify-end gap-2"><button type="button" onclick="openAddStudentSettingModal()" class="px-4 py-2 bg-slate-100 rounded-xl text-sm">Batal</button><button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm">Simpan Perubahan</button></div></form>`);
+}
+function handleRenameStudentSubmit(event, clsName, subClsName, studentId) {
+event.preventDefault(); const newName = document.getElementById('edit-student-name-input').value.trim(); if (!newName) return;
+const student = getStudentList(clsName, subClsName).find(st => String(st.id) === String(studentId));
+if (!student) { alert('Data siswa tidak ditemukan.'); return; }
+student.name = newName; saveData(); openAddStudentSettingModal(); render();
+}
+function handleAddStudentSettingSubmit(event) {
+event.preventDefault(); const clsName = document.getElementById('student-target-class').value; const name = document.getElementById('setting-student-name').value.trim();
+if (!clsName || !name || !schoolData[clsName] || schoolData[clsName].isSubCategory) return;
+const list = schoolData[clsName].students || (schoolData[clsName].students = []);
+const maxNo = list.reduce((max, st) => Math.max(max, Number(st.number) || 0), 0);
+list.push({ id: 's_' + Date.now() + '_' + Math.random().toString(36).slice(2,7), number: maxNo + 1, name, className: clsName, grades: {}, gradesByTw: {} });
+saveData(); openAddStudentSettingModal(); render();
+}
+function deleteStudent(clsName, subClsName, studentId) {
+if (!confirm('Hapus siswa ini beserta nilainya?')) return;
+const list = getStudentList(clsName, subClsName); const idx = list.findIndex(st => String(st.id) === String(studentId));
+if (idx < 0) return; list.splice(idx, 1); saveData(); openAddStudentSettingModal(); render();
+}
+
 function openSettingsModal() {
 showModal(`
 <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
@@ -917,7 +958,7 @@ customSubjectsList[index] = newVal;
 saveData();
 openManageSubjectsModal();
 }
-const SCRIPT_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxIP0IE-W7gCD1HRhJ1QWLVWu21sPvtmsxum5TCYrmpfoIHBigGhGAIWpWjon-CbKja/exec';
+const SCRIPT_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzFAxvYd4f0tDD9TzxvDNsg8YqummUmK9bjslKdPly7rZ8RSYOnEEUAey4Epao6VAcx/exec';
 async function fetchSpreadsheetData(showLoader = true) {
 const loader = document.getElementById('loading-overlay');
 if (loader && showLoader) loader.classList.remove('hidden');
@@ -977,7 +1018,7 @@ student.gradesByTw[getActiveTw()] = cloneGradeMap(student.grades || {});
 saveLocalOnly();
 const endpoint = SCRIPT_WEB_APP_URL;
 adminSettings.scriptUrl = endpoint;
-if (!syncToBackend || !endpoint || endpoint === 'https://script.google.com/macros/s/AKfycbzERMBQqxn3Ip68Z4-MiGengma6BCEgOr5bTJuNbos8bYnnV3_SrAEJPyi0Su25FtWh/exec') return;
+if (!syncToBackend || !endpoint || endpoint === 'TEMPEL_URL_WEB_APP_DI_SINI') return;
 try {
 await fetch(endpoint, {
 method: 'POST',
